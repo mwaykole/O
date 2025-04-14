@@ -27,18 +27,19 @@ A Python CLI tool for installing and managing OpenShift operators with parallel 
 
 ## 📂 Project Structure
 O
+.
 ├── cli/
-│ ├── args.py # Command line argument parsing
-│ └── commands.py # CLI command implementations
+│   ├── args.py            # Command line argument parsing
+│   └── commands.py        # CLI command implementations
 ├── logger/
-│ └── logger.py # Logging configuration
+│   └── logger.py          # Logging configuration
 ├── utils/
-│ ├── operator/
-│ │ └── operator.py # Core operator logic
-│ └── utils.py # Utility functions
-├── main.py # CLI entry point
-├── README.md # This document
-└── test.log # Generated log file
+│   ├── operator/
+│   │   └── operator.py    # Core operator logic
+│   └── utils.py           # Utility functions
+├── main.py                # CLI entry point
+├── README.md              # This document
+└── test.log               # Generated log file
 
 
 ## 🚀 Installation
