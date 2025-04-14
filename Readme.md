@@ -26,6 +26,7 @@ A Python CLI tool for installing and managing OpenShift operators with parallel 
   - Authorino Operator
 
 ## 📂 Project Structure
+```
 O
 .
 ├── cli/
@@ -40,7 +41,7 @@ O
 ├── main.py                # CLI entry point
 ├── README.md              # This document
 └── test.log               # Generated log file
-
+```
 
 ## 🚀 Installation
 
