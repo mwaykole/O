@@ -6,10 +6,11 @@ import os
 import tempfile
 import time
 from typing import Dict, List, Tuple, Optional
-
+from utils.constants import OpenShiftOperatorInstallManifest
+import utils.constants as constants
 from ansible_collections.kubernetes.core.plugins.modules.helm import deploy
-
 from utils.utils import run_command, apply_manifest, wait_for_resource_for_specific_status
+
 
 logger = logging.getLogger(__name__)
 
@@ -20,70 +21,19 @@ class OpenShiftOperatorInstaller:
     @classmethod
     def install_serverless_operator(cls, **kwargs) -> Tuple[int, str, str]:
         """Install the OpenShift Serverless Operator."""
-        manifest = """
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: openshift-serverless
----
-apiVersion: operators.coreos.com/v1
-kind: OperatorGroup
-metadata:
-  name: serverless-operator-group
-  namespace: openshift-serverless
-spec: {}
----
-apiVersion: operators.coreos.com/v1alpha1
-kind: Subscription
-metadata:
-  name: serverless-operator
-  namespace: openshift-serverless
-spec:
-  channel: stable
-  name: serverless-operator
-  source: redhat-operators
-  sourceNamespace: openshift-marketplace
-"""
+        manifest = OpenShiftOperatorInstallManifest.SERVERLESS_MANIFEST
         return cls._install_operator("serverless-operator", manifest, **kwargs)
 
     @classmethod
     def install_service_mesh_operator(cls, **kwargs) -> Tuple[int, str, str]:
         """Install the Service Mesh Operator."""
-        manifest = """
-apiVersion: operators.coreos.com/v1alpha1
-kind: Subscription
-metadata:
-  name: servicemeshoperator
-  namespace: openshift-operators
-  labels:
-    operators.coreos.com/servicemeshoperator.openshift-operators: ""
-spec:
-  channel: stable
-  installPlanApproval: Automatic
-  name: servicemeshoperator
-  source: redhat-operators
-  sourceNamespace: openshift-marketplace
-"""
+        manifest = OpenShiftOperatorInstallManifest.SERVICEMESH_MANIFEST
         return cls._install_operator("servicemeshoperator", manifest, **kwargs)
 
     @classmethod
     def install_authorino_operator(cls, **kwargs) -> Tuple[int, str, str]:
         """Install the Authorino Operator."""
-        manifest = """
-apiVersion: operators.coreos.com/v1alpha1
-kind: Subscription
-metadata:
-  name: authorino-operator
-  namespace: openshift-operators
-  labels:
-    operators.coreos.com/authorino-operator.openshift-operators: ""
-spec:
-  channel: stable
-  installPlanApproval: Automatic
-  name: authorino-operator
-  source: redhat-operators
-  sourceNamespace: openshift-marketplace
-"""
+        manifest = OpenShiftOperatorInstallManifest.AUTHORINO_MANIFEST
         return cls._install_operator("authorino-operator", manifest, **kwargs)
 
     @classmethod
@@ -167,7 +117,7 @@ spec:
                     logger.error(f" {cmd_result.get('stderr', cmd_result.get('error', ''))}")
 
             # craete new dsc and dsci
-            cls.deploy_dsc_dsci(kserve_raw=is_Raw)
+            cls.deploy_dsc_dsci(kserve_raw=is_Raw, channel=channel)
 
             return results
 
@@ -391,69 +341,20 @@ spec:
         return results
 
     @classmethod
-    def deploy_dsc_dsci(cls, kserve_raw=False):
-        service_mesh_state = "Removed" if kserve_raw == "True" else "Managed"
+    def deploy_dsc_dsci(cls, channel, kserve_raw=False):
+        kserve_raw = kserve_raw == "True"
 
-        def get_dsci_manifest(service_mesh):
-            return f"""
-    kind: DSCInitialization
-    apiVersion: dscinitialization.opendatahub.io/v1
-    metadata:
-      labels:
-        app.kubernetes.io/created-by: rhods-operator
-        app.kubernetes.io/instance: default-dsci
-        app.kubernetes.io/managed-by: kustomize
-        app.kubernetes.io/name: dscinitialization
-        app.kubernetes.io/part-of: rhods-operator
-      name: default-dsci
-    spec:
-      applicationsNamespace: redhat-ods-applications
-      monitoring:
-        managementState: Managed
-        namespace: redhat-ods-monitoring
-      serviceMesh:
-        controlPlane:
-          metricsCollection: Istio
-          name: data-science-smcp
-          namespace: istio-system
-        managementState: {service_mesh}
-      trustedCABundle:
-        customCABundle: ''
-        managementState: Managed
-    """
+        dsci_params = {}
+        if channel == "odh-nightlies":
+            dsci_params["applications_namespace"] = "opendatahub"
+            dsci_params["monitoring_namespace"] = "opendatahub"
 
-        def get_dsc_manifest(service_mesh):
-            return f"""
-    kind: DataScienceCluster
-    apiVersion: datasciencecluster.opendatahub.io/v1
-    metadata:
-      labels:
-        app.kubernetes.io/created-by: rhods-operator
-        app.kubernetes.io/instance: default-dsc
-        app.kubernetes.io/managed-by: kustomize
-        app.kubernetes.io/name: datasciencecluster
-        app.kubernetes.io/part-of: rhods-operator
-      name: default-dsc
-    spec:
-      components:
-        dashboard:
-          managementState: Managed
-        kserve:
-          managementState: Managed
-          nim:
-            managementState: Managed
-          serving:
-            ingressGateway:
-              certificate:
-                type: OpenshiftDefaultIngress
-            managementState: {service_mesh}
-            name: knative-serving
-        modelmeshserving:
-          managementState: Managed
-    """
+        dsci = constants.get_dsci_manifest(
+            kserve_raw=kserve_raw,
+            **dsci_params
+        )
 
-        # Deploy DSCInitialization
-        apply_manifest(get_dsci_manifest(service_mesh_state))
+        apply_manifest(dsci)
         success, out, err = wait_for_resource_for_specific_status(
             status="Ready",
             cmd="oc get dsci/default-dsci -o jsonpath='{.status.phase}'",
@@ -466,8 +367,13 @@ spec:
         else:
             logger.error(f"DSCI did not become Ready. Last status: {out.strip()}")
 
+        dsc_params = {}
+        if channel == "odh-nightlies":
+            dsc_params["operator_namespace"] = "opendatahub-operator"
+
         # Deploy DataScienceCluster
-        apply_manifest(get_dsc_manifest(service_mesh_state))
+        apply_manifest(constants.get_dsc_manifest(enable_raw_serving=kserve_raw,**dsc_params))
+
         success, out, err = wait_for_resource_for_specific_status(
             status="Ready",
             cmd="oc get dsc/default-dsc -n redhat-ods-applications -o jsonpath='{.status.phase}'",
