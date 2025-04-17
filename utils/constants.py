@@ -117,14 +117,14 @@ spec:
     dashboard:
       managementState: {to_state(enable_dashboard)}
     kserve:
-      managementState: {to_state(enable_kserve ^ True)}
+      managementState: {to_state(enable_kserve)}
       nim:
         managementState: Managed
       serving:
         ingressGateway:
           certificate:
             type: OpenshiftDefaultIngress
-        managementState: {to_state(enable_raw_serving)}
+        managementState: {to_state(enable_raw_serving ^ True)}
         name: knative-serving
     modelmeshserving:
       managementState: {to_state(enable_modelmeshserving)}
