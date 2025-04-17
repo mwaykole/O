@@ -146,7 +146,7 @@ fi
 # Clean up webhooks
 cleanup_webhooks() {
 log_info "Cleaning up webhooks..."
-
+oc delete servingruntimes,isvc --all -A
 # Validating webhooks
 for webhook in $(oc get validatingwebhookconfiguration --no-headers | grep -E "kserve|knative|istio|opendatahub" | awk '{print $1}'); do
         log_info "Deleting validating webhook: ${webhook}"
@@ -297,7 +297,9 @@ local crds_to_delete=(
 # Delete CRDs from the list
 for crd in "${crds_to_delete[@]}"; do
         log_info "Deleting CRD: ${crd}"
+        oc get crd -o json | jq '.items[] | select(.metadata.finalizers != null) | .metadata.name'
         oc patch crd "$crd" -p '{"metadata":{"finalizers":[]}}' --type=merge --ignore-not-found || true
+        oc get crd -o json | jq '.items[] | select(.metadata.finalizers != null) | .metadata.name'
         oc delete crd "$crd" --force --grace-period=0 --ignore-not-found || true
 done
 
@@ -451,4 +453,4 @@ main_cleanup
 }
 
 # Execute main function
-main "$@"
+main
