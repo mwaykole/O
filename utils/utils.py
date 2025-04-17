@@ -278,4 +278,4 @@ def wait_for_resource_for_specific_status(
         f"Timeout after {elapsed:.1f}s waiting for status '{status}'. "
         f"Last output: {last_stdout.strip()}"
     )
-    return (False, last_stdout, last_stderr)
+    return False, last_stdout, last_stderr
