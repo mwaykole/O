@@ -40,8 +40,6 @@ def parse_args() -> argparse.Namespace:
                         default="quay.io/rhoai/rhoai-fbc-fragment:rhoai-2.20-nightly",
                         help="rhoai image eg: quay.io/rhoai/rhoai-fbc-fragment:rhoai-2.20-nightly")
 
-
-
     # Output control
     output = parser.add_argument_group("Output Control")
     output.add_argument("-v", "--verbose", action="store_true",
@@ -59,7 +57,7 @@ def build_config(args: argparse.Namespace) -> Dict[str, Any]:
         'timeout': args.timeout,
         'rhoai_image': args.rhoai_image,
         'rhoai_channel': args.rhoai_channel,
-        'raw':args.raw,
+        'raw': args.raw,
     }
 
 
