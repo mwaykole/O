@@ -19,6 +19,8 @@ def parse_args() -> argparse.Namespace:
                            help="Install RHOArawI Operator")
     operators.add_argument("--all", action="store_true",
                            help="Install all operators")
+    operators.add_argument("--cleanup", action="store_true",
+                           help="clean up all RHOAI, serverless , servishmesh , Authorino Operator ")
 
     # Configuration options
     config = parser.add_argument_group("Configuration")

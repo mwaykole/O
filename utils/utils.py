@@ -1,7 +1,8 @@
+import logging
 import subprocess
 import time
-import logging
-from typing import Tuple, Optional, List
+from typing import Tuple, Optional
+import sys
 
 
 def run_command(
@@ -12,7 +13,8 @@ def run_command(
         cwd: Optional[str] = None,
         env: Optional[dict] = None,
         shell: bool = True,
-        log_output: bool = True
+        log_output: bool = True,
+        live_output: bool = False  # New parameter for live output
 ) -> Tuple[int, str, str]:
     """Execute a shell command with retries and proper error handling.
 
@@ -25,56 +27,88 @@ def run_command(
         env: Environment variables dictionary
         shell: Whether to run through shell
         log_output: Whether to log command output
+        live_output: Whether to show live output (new parameter)
 
     Returns:
         Tuple of (return_code, stdout, stderr)
-# Example usage:
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-
-    # Successful command
-    rc, out, err = run_command("echo 'Hello World'")
-    print(f"Success case: rc={rc}, out={out.strip()}")
-
-    # Failing command
-    rc, out, err = run_command("ls /nonexistent", max_retries=2)
-    print(f"Failure case: rc={rc}, err={err.strip()}")
-
-    # Command with retries
-    rc, out, err = run_command("curl --fail http://example.com", max_retries=3)
-    print(f"HTTP case: rc={rc}, out={out.strip() if rc == 0 else err.strip()}")
     """
     attempt = 0
     last_exception = None
+    stdout = ""
+    stderr = ""
 
     while attempt <= max_retries:
         attempt += 1
         try:
             logging.info(f"Executing command (attempt {attempt}/{max_retries}): {cmd}")
 
-            result = subprocess.run(
-                cmd,
-                shell=shell,
-                check=False,
-                timeout=timeout,
-                cwd=cwd,
-                env=env,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
+            if live_output:
+                # Live output mode - stream directly to console
+                process = subprocess.Popen(
+                    cmd,
+                    shell=shell,
+                    cwd=cwd,
+                    env=env,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    bufsize=1,  # Line buffered
+                    universal_newlines=True
+                )
 
-            if log_output:
-                if result.stdout:
-                    logging.debug(f"STDOUT: {result.stdout.strip()}")
-                if result.stderr:
-                    logging.debug(f"STDERR: {result.stderr.strip()}")
+                # Read output line by line and log/print it
+                while True:
+                    output = process.stdout.readline()
+                    if output == '' and process.poll() is not None:
+                        break
+                    if output:
+                        print(output.strip())  # Live output to console
+                        if log_output:
+                            logging.debug(f"STDOUT: {output.strip()}")
+                        stdout += output
 
-            if result.returncode == 0:
-                return (result.returncode, result.stdout, result.stderr)
+                # Capture any remaining output after process ends
+                remaining_stdout, remaining_stderr = process.communicate()
+                if remaining_stdout:
+                    print(remaining_stdout.strip())
+                    if log_output:
+                        logging.debug(f"STDOUT: {remaining_stdout.strip()}")
+                    stdout += remaining_stdout
+                if remaining_stderr:
+                    print(remaining_stderr.strip(), file=sys.stderr)
+                    if log_output:
+                        logging.debug(f"STDERR: {remaining_stderr.strip()}")
+                    stderr += remaining_stderr
+
+                return_code = process.returncode
+            else:
+                # Original behavior - capture output
+                result = subprocess.run(
+                    cmd,
+                    shell=shell,
+                    check=False,
+                    timeout=timeout,
+                    cwd=cwd,
+                    env=env,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+                )
+                stdout = result.stdout
+                stderr = result.stderr
+                return_code = result.returncode
+
+                if log_output:
+                    if stdout:
+                        logging.debug(f"STDOUT: {stdout.strip()}")
+                    if stderr:
+                        logging.debug(f"STDERR: {stderr.strip()}")
+
+            if return_code == 0:
+                return (return_code, stdout, stderr)
 
             last_exception = subprocess.CalledProcessError(
-                result.returncode, cmd, result.stdout, result.stderr
+                return_code, cmd, stdout, stderr
             )
 
         except subprocess.TimeoutExpired as e:
