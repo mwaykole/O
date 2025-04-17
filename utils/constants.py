@@ -23,7 +23,8 @@ spec:
   source: redhat-operators
   sourceNamespace: openshift-marketplace
 """
-    SERVICEMESH_MANIFEST = """
+
+    SERVICEMESH_MANIFEST = """\
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
@@ -38,7 +39,8 @@ spec:
   source: redhat-operators
   sourceNamespace: openshift-marketplace
 """
-    AUTHORINO_MANIFEST = """
+
+    AUTHORINO_MANIFEST = """\
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
@@ -55,37 +57,41 @@ spec:
 """
 
 
-# func
 def get_dsci_manifest(kserve_raw=True,
                       applications_namespace="redhat-ods-applications",
                       monitoring_namespace="redhat-ods-monitoring"):
-    def to_state(flag): return "Managed" if flag else "Removed"
-    return f"""
-    kind: DSCInitialization
-    apiVersion: dscinitialization.opendatahub.io/v1
-    metadata:
-      labels:
-        app.kubernetes.io/created-by: rhods-operator
-        app.kubernetes.io/instance: default-dsci
-        app.kubernetes.io/managed-by: kustomize
-        app.kubernetes.io/name: dscinitialization
-        app.kubernetes.io/part-of: rhods-operator
-      name: default-dsci
-    spec:
-      applicationsNamespace:{applications_namespace} 
-      monitoring:
-        managementState: Managed
-        namespace: {monitoring_namespace}
-      serviceMesh:
-        controlPlane:
-          metricsCollection: Istio
-          name: data-science-smcp
-          namespace: istio-system
-        managementState: {to_state(kserve_raw)}
-      trustedCABundle:
-        customCABundle: ''
-        managementState: Managed
-    """
+    def to_state(flag): return "Removed" if flag else "Managed"
+
+    return f"""apiVersion: dscinitialization.opendatahub.io/v1
+kind: DSCInitialization
+metadata:
+  labels:
+    app.kubernetes.io/created-by: rhods-operator
+    app.kubernetes.io/instance: default-dsci
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: dscinitialization
+    app.kubernetes.io/part-of: rhods-operator
+  name: default-dsci
+spec:
+  applicationsNamespace: {applications_namespace}
+  monitoring:
+    managementState: Managed
+    namespace: {monitoring_namespace}
+  serviceMesh:
+    controlPlane:
+      metricsCollection: Istio
+      name: data-science-smcp
+      namespace: istio-system
+    managementState: {to_state(kserve_raw)}
+  trustedCABundle:
+    customCABundle: ''
+    managementState: Managed
+"""
+
+
+class WaitTime:
+    WAIT_TIME_10_MIN = 60 * 10
+    WAIT_TIME_5_MIN = 30 * 10
 
 
 def get_dsc_manifest(enable_dashboard=True,
@@ -93,34 +99,33 @@ def get_dsc_manifest(enable_dashboard=True,
                      enable_raw_serving=True,
                      enable_modelmeshserving=True,
                      operator_namespace="rhods-operator"):
-
     def to_state(flag): return "Managed" if flag else "Removed"
 
-    return f"""
-    kind: DataScienceCluster
-    apiVersion: datasciencecluster.opendatahub.io/v1
-    metadata:
-      labels:
-        app.kubernetes.io/created-by: {operator_namespace}
-        app.kubernetes.io/instance: default-dsc
-        app.kubernetes.io/managed-by: kustomize
-        app.kubernetes.io/name: datasciencecluster
-        app.kubernetes.io/part-of: {operator_namespace}
-      name: default-dsc
-    spec:
-      components:
-        dashboard:
-          managementState: {to_state(enable_dashboard)}
-        kserve:
-          managementState: {to_state(enable_kserve)}
-          nim:
-            managementState: Managed
-          serving:
-            ingressGateway:
-              certificate:
-                type: OpenshiftDefaultIngress
-            managementState: {to_state(enable_raw_serving)}
-            name: knative-serving
-        modelmeshserving:
-          managementState: {to_state(enable_modelmeshserving)}
-    """
+
+    return f"""apiVersion: datasciencecluster.opendatahub.io/v1
+kind: DataScienceCluster
+metadata:
+  labels:
+    app.kubernetes.io/created-by: {operator_namespace}
+    app.kubernetes.io/instance: default-dsc
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: datasciencecluster
+    app.kubernetes.io/part-of: {operator_namespace}
+  name: default-dsc
+spec:
+  components:
+    dashboard:
+      managementState: {to_state(enable_dashboard)}
+    kserve:
+      managementState: {to_state(enable_kserve ^ True)}
+      nim:
+        managementState: Managed
+      serving:
+        ingressGateway:
+          certificate:
+            type: OpenshiftDefaultIngress
+        managementState: {to_state(enable_raw_serving)}
+        name: knative-serving
+    modelmeshserving:
+      managementState: {to_state(enable_modelmeshserving)}
+"""

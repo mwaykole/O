@@ -7,10 +7,10 @@ import tempfile
 import time
 from typing import Dict, List, Tuple, Optional
 from utils.constants import OpenShiftOperatorInstallManifest
-import utils.constants as constants
-from ansible_collections.kubernetes.core.plugins.modules.helm import deploy
-from utils.utils import run_command, apply_manifest, wait_for_resource_for_specific_status
+from utils.constants import WaitTime
 
+import utils.constants as constants
+from utils.utils import run_command, apply_manifest, wait_for_resource_for_specific_status
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +72,7 @@ class OpenShiftOperatorInstaller:
 
             rc, stdout, stderr = run_command(
                 clone_cmd,
-                timeout=300,
+                timeout=WaitTime.WAIT_TIME_5_MIN,
                 log_output=True,
                 **kwargs
             )
@@ -148,7 +148,7 @@ class OpenShiftOperatorInstaller:
                 cmd,
                 max_retries=kwargs.get('max_retries', 3),
                 retry_delay=kwargs.get('retry_delay', 10),
-                timeout=kwargs.get('timeout', 300),
+                timeout=kwargs.get('timeout', WaitTime.WAIT_TIME_5_MIN),
                 log_output=True
             )
 
@@ -215,7 +215,7 @@ class OpenShiftOperatorInstaller:
             cls,
             operators: List[Dict[str, str]],
             oc_binary: str = "oc",
-            timeout: int = 600,
+            timeout: int = WaitTime.WAIT_TIME_10_MIN,
             interval: int = 2,
             max_workers: int = 5
     ) -> Dict[str, Dict[str, str]]:
@@ -269,7 +269,7 @@ class OpenShiftOperatorInstaller:
     @classmethod
     def force_delete_rhoai_dsc_dsci(clas,
                                     oc_binary: str = "oc",
-                                    timeout: int = 300,
+                                    timeout: int = WaitTime.WAIT_TIME_5_MIN,
                                     **kwargs
                                     ) -> Dict[str, Dict[str, str]]:
         """
@@ -358,7 +358,7 @@ class OpenShiftOperatorInstaller:
         success, out, err = wait_for_resource_for_specific_status(
             status="Ready",
             cmd="oc get dsci/default-dsci -o jsonpath='{.status.phase}'",
-            timeout=600,
+            timeout=WaitTime.WAIT_TIME_10_MIN,
             interval=5,
             case_sensitive=True,
         )
@@ -372,12 +372,12 @@ class OpenShiftOperatorInstaller:
             dsc_params["operator_namespace"] = "opendatahub-operator"
 
         # Deploy DataScienceCluster
-        apply_manifest(constants.get_dsc_manifest(enable_raw_serving=kserve_raw,**dsc_params))
+        apply_manifest(constants.get_dsc_manifest(enable_raw_serving=kserve_raw, **dsc_params))
 
         success, out, err = wait_for_resource_for_specific_status(
             status="Ready",
             cmd="oc get dsc/default-dsc -n redhat-ods-applications -o jsonpath='{.status.phase}'",
-            timeout=600,
+            timeout=WaitTime.WAIT_TIME_10_MIN,
             interval=5,
             case_sensitive=True,
         )
@@ -405,7 +405,7 @@ class OpenShiftOperatorInstaller:
                 cmd,
                 max_retries=kwargs.get('max_retries', 3),
                 retry_delay=kwargs.get('retry_delay', 10),
-                timeout=kwargs.get('timeout', 300),
+                timeout=kwargs.get('timeout', WaitTime.WAIT_TIME_5_MIN),
                 log_output=True
             )
         except Exception as e:
@@ -456,7 +456,7 @@ class OpenShiftOperatorInstaller:
         results = cls.wait_for_operators(
             operators=applied_successfully,
             oc_binary=oc_binary,
-            timeout=kwargs.get("timeout", 600),
+            timeout=kwargs.get("timeout", WaitTime.WAIT_TIME_10_MIN),
             interval=kwargs.get("interval", 5),
             max_workers=len(applied_successfully)
         )

@@ -12,6 +12,24 @@ logger = Logger.get_logger(__name__)
 
 def main() -> int:
     """Main entry point for the operator installation tool."""
+
+    def display_large_banner():
+        banner = r"""
+           OOOOOOOOO     
+         OO:::::::::OO   
+       OO:::::::::::::OO 
+      O:::::::OOO:::::::O
+      O::::::O   O::::::O
+      O:::::O     O:::::O
+      O:::::O     O:::::O
+      O::::::O   O::::::O
+      O:::::::OOO:::::::O
+       OO:::::::::::::OO 
+         OO:::::::::OO   
+           OOOOOOOOO     
+        """
+        print(banner.center(50))
+    display_large_banner()
     try:
         args = parse_args()
 
