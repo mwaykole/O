@@ -174,16 +174,12 @@ class OpenShiftOperatorInstaller:
         """Check both CSV and Deployment status for an operator."""
         try:
             # Check CSV status
-
-            csv_cmd = f"{oc_binary} get csv -n {namespace} -o json | grep '{operator_name}' | awk '{{print $NF}}'"
-
-            rc, stdout, stderr = run_command(csv_cmd, log_output=False)
+            csv_cmd = f"{oc_binary} get csv -n default | grep '{operator_name}' | awk '{{print $NF}}'"
+            rc, stdout, stderr = run_command(csv_cmd, log_output=True)
 
             if rc != 0:
                 return False, f"Error running oc get csv: {stderr}"
-
-            if not "Succeeded":
-                logger.warning("CSV not in succeeded phase")
+            if stdout.strip() != "Succeeded":
                 return False, "CSV not in succeeded phase"
 
             return True, "Operator fully installed and ready"
