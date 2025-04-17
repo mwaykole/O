@@ -59,6 +59,7 @@ class OpenShiftOperatorInstaller:
         channel = kwargs.pop("rhoai_channel")
         rhoai_image = kwargs.pop("rhoai_image")
         is_Raw = kwargs.pop('raw')
+        create_dsc_dsci = kwargs.pop('create_dsc_dsci')
         temp_dir = tempfile.mkdtemp()
         results = {}
         if not channel or not rhoai_image:
@@ -107,17 +108,10 @@ class OpenShiftOperatorInstaller:
                 raise RuntimeError("RHOAI Operator installation timed out")
 
             logger.info("✅ RHOAI Operator installed successfully")
-
-            # Delete old dsc and dsci
-            result = cls.force_delete_rhoai_dsc_dsci()
-            # Check results
-            for cmd_name, cmd_result in result.items():
-                logger.info(f"{cmd_name}: {cmd_result['status']}")
-                if cmd_result['status'] != 'success':
-                    logger.error(f" {cmd_result.get('stderr', cmd_result.get('error', ''))}")
-
-            # craete new dsc and dsci
-            cls.deploy_dsc_dsci(kserve_raw=is_Raw, channel=channel)
+            if create_dsc_dsci:
+                # craete new dsc and dsci
+                cls.deploy_dsc_dsci(kserve_raw=is_Raw, channel=channel,
+                                    create_dsc_dsci=create_dsc_dsci)
 
             return results
 
@@ -263,7 +257,7 @@ class OpenShiftOperatorInstaller:
         return results
 
     @classmethod
-    def force_delete_rhoai_dsc_dsci(clas,
+    def force_delete_rhoai_dsc_dsci(cls,
                                     oc_binary: str = "oc",
                                     timeout: int = WaitTime.WAIT_TIME_5_MIN,
                                     **kwargs
@@ -337,9 +331,18 @@ class OpenShiftOperatorInstaller:
         return results
 
     @classmethod
-    def deploy_dsc_dsci(cls, channel, kserve_raw=False):
+    def deploy_dsc_dsci(cls, channel, kserve_raw=False, create_dsc_dsci=False):
         kserve_raw = kserve_raw == "True"
-
+        # create_dsc_dsci = create_dsc_dsci == "True"
+        logging.debug(f" Creating DSC and DSCI resource.....")
+        if create_dsc_dsci:
+            # Delete old dsc and dsci
+            result = cls.force_delete_rhoai_dsc_dsci()
+            # Check results
+            for cmd_name, cmd_result in result.items():
+                logger.info(f"{cmd_name}: {cmd_result['status']}")
+                if cmd_result['status'] != 'success':
+                    logger.error(f" {cmd_result.get('stderr', cmd_result.get('error', ''))}")
         dsci_params = {}
         if channel == "odh-nightlies":
             dsci_params["applications_namespace"] = "opendatahub"

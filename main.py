@@ -9,7 +9,7 @@ from logger.logger import Logger
 logger = Logger.get_logger(__name__)
 
 
-def main() -> int:
+def main() -> int | None:
     """Main entry point for the operator installation tool."""
 
     def display_large_banner():
@@ -43,6 +43,7 @@ def main() -> int:
             'rhoai_image': args.rhoai_image,
             'rhoai_channel': args.rhoai_channel,
             'raw': args.raw,
+            'create_dsc_dsci': args.deploy_rhoai_resources,
         }
         logger.info(config)
         # Determine which operators to install
@@ -76,6 +77,7 @@ def main() -> int:
         if not args.cleanup:
             logger.error("Operator installation failed")
             return 1
+        return None
 
     except Exception as e:
         logger.error(f"An error occurred: {str(e)}", exc_info=True)

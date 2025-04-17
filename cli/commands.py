@@ -1,8 +1,6 @@
 # commands.py
 import sys
 
-from sqlalchemy import false
-
 sys.dont_write_bytecode = True
 
 import logging
@@ -40,6 +38,7 @@ def install_operator(op_name: str, config: Dict[str, Any]) -> bool:
             'channel': config.get("rhoai_channel"),
             'rhoai_image': config.get("rhoai_image"),
             'raw': config.get("raw", False),
+            'create_dsc_dsci': config.get("create_dsc_dsci", False),
             'csv_name': 'rhods-operator',
             'namespace': 'redhat-ods-operators',
             'display': 'display:RHOAI Operator'

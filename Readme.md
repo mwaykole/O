@@ -77,6 +77,9 @@ python main.py --rhoai --rhoai-channel=<channel> --rhoai-image=<image> --raw=Fal
 # Install all operators 
 python main.py --all
 
+# create dsc and dsci with rhoai operator installarion
+python main.py --rhoai --rhoai-channel=<channel> --rhoai-image=<image> --raw=False --deploy-rhoai-resources
+
 # Verbose output
 python main.py --all --verbose
 ```
