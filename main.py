@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 import sys
-
 sys.dont_write_bytecode = True
-import sys
+from utils.operator.cleanup import cleanup
 from cli.args import parse_args
 from cli.commands import install_operator, install_operators
 from logger.logger import Logger
@@ -29,9 +28,13 @@ def main() -> int:
            OOOOOOOOO     
         """
         print(banner.center(50))
+
     display_large_banner()
     try:
         args = parse_args()
+        if args.cleanup:
+            print("hello")
+            # cleanup()
 
         config = {
             'oc_binary': args.oc_binary,
@@ -40,7 +43,7 @@ def main() -> int:
             'timeout': args.timeout,
             'rhoai_image': args.rhoai_image,
             'rhoai_channel': args.rhoai_channel,
-            'raw':args.raw,
+            'raw': args.raw,
         }
         logger.info(config)
         # Determine which operators to install
@@ -51,7 +54,7 @@ def main() -> int:
             'rhoai': args.rhoai,
         }
 
-        if not any(selected_ops.values()):
+        if not any(selected_ops.values()) and not args.cleanup:
             logger.error("No operators selected. Use --help for usage information.")
             return 1
 
@@ -68,12 +71,12 @@ def main() -> int:
             logger.info(f"Installing {selected_count} operators...")
             success = install_operators(selected_ops, config)
 
-        if success:
+        if success and not args.cleanup:
             logger.info("Operator installation completed successfully")
             return 0
-
-        logger.error("Operator installation failed")
-        return 1
+        if not args.cleanup:
+            logger.error("Operator installation failed")
+            return 1
 
     except Exception as e:
         logger.error(f"An error occurred: {str(e)}", exc_info=True)
