@@ -33,8 +33,7 @@ def main() -> int:
     try:
         args = parse_args()
         if args.cleanup:
-            print("hello")
-            # cleanup()
+            cleanup()
 
         config = {
             'oc_binary': args.oc_binary,
