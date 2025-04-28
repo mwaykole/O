@@ -103,14 +103,14 @@ if [ -n "$namespace" ]; then
         oc patch "$resource" -n "$namespace" -p '{"metadata":{"finalizers":[]}}' --type=merge || true
         done
 
-        oc delete "$resource_type" --all $extra_flags -n "$namespace" --ignore-not-found || true
+        oc delete "$resource_type" --all $extra_flags -n "$namespace"  || true
 else
         oc get "$resource_type" --all-namespaces --no-headers -o name 2>/dev/null | while read -r resource; do
         log_info "Removing finalizers from ${resource}"
         oc patch "$resource" -p '{"metadata":{"finalizers":[]}}' --type=merge || true
         done
 
-        oc delete "$resource_type" --all $extra_flags --all-namespaces --ignore-not-found || true
+        oc delete "$resource_type" --all $extra_flags --all-namespaces  || true
 fi
 }
 
@@ -128,13 +128,13 @@ if oc get namespace "$namespace" &>/dev/null; then
         oc patch namespace "$namespace" -p '{"metadata":{"finalizers":[]}}' --type=merge || true
 
         # Delete the namespace
-        oc delete namespace "$namespace" --force --grace-period=0 --ignore-not-found || true
+        oc delete namespace "$namespace" --force --grace-period=0  || true
 
         # Verify deletion
         if oc get namespace "$namespace" &>/dev/null; then
         log_warning "Namespace ${namespace} still exists. Retrying deletion..."
         sleep 5
-        oc delete namespace "$namespace" --force --grace-period=0 --ignore-not-found || true
+        oc delete namespace "$namespace" --force --grace-period=0  || true
         fi
 
         log_success "Namespace ${namespace} deleted"
@@ -150,13 +150,13 @@ oc delete servingruntimes,isvc --all -A
 # Validating webhooks
 for webhook in $(oc get validatingwebhookconfiguration --no-headers | grep -E "kserve|knative|istio|opendatahub" | awk '{print $1}'); do
         log_info "Deleting validating webhook: ${webhook}"
-        oc delete validatingwebhookconfiguration "$webhook" --ignore-not-found || true
+        oc delete validatingwebhookconfiguration "$webhook"  || true
 done
 
 # Mutating webhooks
 for webhook in $(oc get mutatingwebhookconfiguration --no-headers | grep -E "kserve|knative|istio|opendatahub" | awk '{print $1}'); do
         log_info "Deleting mutating webhook: ${webhook}"
-        oc delete mutatingwebhookconfiguration "$webhook" --ignore-not-found || true
+        oc delete mutatingwebhookconfiguration "$webhook"  || true
 done
 
 log_success "Webhook cleanup completed"
@@ -181,9 +181,9 @@ log_info "Cleaning up RHOAI components..."
 
 # Delete KfDef instances (RHOAI 1.x)
 log_info "Deleting KfDef instances..."
-oc delete kfdef --all -n "$RHODS_NOTEBOOKS_NAMESPACE" --ignore-not-found || true
-oc delete kfdef --all -n "$RHODS_MONITORING_NAMESPACE" --ignore-not-found || true
-oc delete kfdef --all -n "$RHODS_APPS_NAMESPACE" --ignore-not-found || true
+oc delete kfdef --all -n "$RHODS_NOTEBOOKS_NAMESPACE"  || true
+oc delete kfdef --all -n "$RHODS_MONITORING_NAMESPACE"  || true
+oc delete kfdef --all -n "$RHODS_APPS_NAMESPACE"  || true
 
 # Delete RHOAI custom resources
 log_info "Deleting RHOAI custom resources..."
@@ -213,11 +213,11 @@ done
 
 # Patch specific resources
 log_info "Patching specific RHOAI resources..."
-oc patch dsc default-dsc -p '{"metadata": {"finalizers": []}}' --type=merge --ignore-not-found || true
-oc patch dsc rhoai -p '{"metadata": {"finalizers": []}}' --type=merge --ignore-not-found || true
-oc delete dsc --all --force --grace-period=0 --wait --ignore-not-found || true
-oc patch dsci default-dsci -p '{"metadata": {"finalizers": []}}' --type=merge --ignore-not-found || true
-oc delete dsci --all --force --grace-period=0 --wait --ignore-not-found || true
+oc patch dsc default-dsc -p '{"metadata": {"finalizers": []}}' --type=merge  || true
+oc patch dsc rhoai -p '{"metadata": {"finalizers": []}}' --type=merge  || true
+oc delete dsc --all --force --grace-period=0 --wait  || true
+oc patch dsci default-dsci -p '{"metadata": {"finalizers": []}}' --type=merge  || true
+oc delete dsci --all --force --grace-period=0 --wait  || true
 
 log_success "RHOAI components cleanup completed"
 }
@@ -237,16 +237,16 @@ local operators=(
 
 for operator in "${operators[@]}"; do
         log_info "Deleting subscription for ${operator}"
-        oc delete sub "$operator" --force --grace-period=0 -n openshift-operators --ignore-not-found || true
+        oc delete sub "$operator" --force --grace-period=0 -n openshift-operators  || true
 
         log_info "Deleting CSV for ${operator}"
-        oc delete csv -n openshift-operators $(oc get csv -n openshift-operators | grep "$operator" | awk '{print $1}') --ignore-not-found || true
+        oc delete csv -n openshift-operators $(oc get csv -n openshift-operators | grep "$operator" | awk '{print $1}')  || true
 done
 
 # Delete InstallPlans
 log_info "Deleting InstallPlans..."
 for installplan in $(oc get installPlan -n openshift-operators | grep -E 'authorino|serverless|servicemeshoperator|opendatahub|pipeline' | awk '{print $1}'); do
-        oc delete installPlan -n openshift-operators "$installplan" --ignore-not-found || true
+        oc delete installPlan -n openshift-operators "$installplan"  || true
 done
 
 log_success "Operators cleanup completed"
@@ -344,30 +344,32 @@ local crds_to_delete=(
     "lmevaljobs.trustyai.opendatahub.io"
 )
 
-# Delete CRDs from the list
-for crd in "${crds_to_delete[@]}"; do
-        log_info "Deleting CRD: ${crd}"
-        oc patch crd "$crd" -p '{"metadata":{"finalizers":[]}}' --type=merge --ignore-not-found || true
-        oc delete crd "$crd" --force --grace-period=0 --ignore-not-found || true
-done
-
 # Delete additional CRDs by pattern
 log_info "Deleting CRDs by pattern...BG started"
 (
-  echo "Deleting CRDs by pattern..."
-  for crd in $(oc get crd --no-headers | grep -E "kserve|knative|istio|opendatahub|serverless|authorino" | awk '{print $1}'); do
-      echo "Deleting CRD: ${crd}"
-      oc patch crd "$crd" -p '{"metadata":{"finalizers":[]}}' --type=merge --ignore-not-found || true
-      oc delete crd "$crd" --force --grace-period=0 --ignore-not-found || true
-  done
+log_info "Deleting CRDs by pattern..."
+for crd in $(oc get crd --no-headers | grep -E "kserve|knative|istio|opendatahub|serverless|authorino" | awk '{print $1}'); do
+    log_info "Force-removing finalizers and deleting CRD: ${crd}"
+
+    # Fire and forget style: no wait, no loop
+    oc patch crd "$crd" --type=json -p='[{"op": "remove", "path": "/metadata/finalizers"}]'  --timeout=5s || true
+    oc delete crd "$crd" --force --grace-period=0  --timeout=5s || true
+done
 ) &
-log_info "10 sec sleep...."
-sleep 10
+log_info "30 sec sleep...."
+sleep 30
+# Delete CRDs from the list
+for crd in "${crds_to_delete[@]}"; do
+        log_info "Deleting CRD: ${crd}"
+        oc patch crd "$crd" -p '{"metadata":{"finalizers":[]}}' --type=merge  --timeout=5s || true
+        oc delete crd "$crd" --force --grace-period=0  --timeout=5s || true
+done
+
 log_info "Deleting CRDs by pattern..."
 for crd in $(oc get crd --no-headers | grep -E "kserve|knative|istio|opendatahub|serverless|authorino" | awk '{print $1}'); do
         log_info "Deleting CRD: ${crd}"
-        oc patch crd "$crd" -p '{"metadata":{"finalizers":[]}}' --type=merge --ignore-not-found || true
-        oc delete crd "$crd" --force --grace-period=0 --ignore-not-found || true
+        oc patch crd "$crd" -p '{"metadata":{"finalizers":[]}}' --type=merge   --timeout=5s|| true
+        oc delete crd "$crd" --force --grace-period=0  --timeout=5s|| true
 done
 
 log_success "CRDs cleanup completed"
@@ -413,14 +415,14 @@ if oc get namespace "$ISTIO_NAMESPACE" &>/dev/null; then
 
         log_info "Patching and deleting SMCP resources"
         for smcp in $(oc get smcp -n "$ISTIO_NAMESPACE" --no-headers | awk '{print $1}'); do
-        oc patch smcp "$smcp" -n "$ISTIO_NAMESPACE" -p '{"metadata": {"finalizers": []}}' --type=merge --ignore-not-found || true
-        oc delete smcp "$smcp" -n "$ISTIO_NAMESPACE" --ignore-not-found || true
+        oc patch smcp "$smcp" -n "$ISTIO_NAMESPACE" -p '{"metadata": {"finalizers": []}}' --type=merge  || true
+        oc delete smcp "$smcp" -n "$ISTIO_NAMESPACE"  || true
         done
 
         log_info "Patching and deleting SMMR resources"
         for smmr in $(oc get smmr -n "$ISTIO_NAMESPACE" --no-headers | awk '{print $1}'); do
-        oc patch smmr "$smmr" -n "$ISTIO_NAMESPACE" -p '{"metadata": {"finalizers": []}}' --type=merge --ignore-not-found || true
-        oc delete smmr "$smmr" -n "$ISTIO_NAMESPACE" --ignore-not-found || true
+        oc patch smmr "$smmr" -n "$ISTIO_NAMESPACE" -p '{"metadata": {"finalizers": []}}' --type=merge  || true
+        oc delete smmr "$smmr" -n "$ISTIO_NAMESPACE"  || true
         done
 
         log_info "Deleting SMM resources"
@@ -428,7 +430,7 @@ if oc get namespace "$ISTIO_NAMESPACE" &>/dev/null; then
         delete_resources "servicemeshmembers.maistra.io" "$ISTIO_NAMESPACE" "--force --grace-period=0"
 
         log_info "Deleting maistra-admission-controller service"
-        oc delete svc maistra-admission-controller -n openshift-operators --ignore-not-found || true
+        oc delete svc maistra-admission-controller -n openshift-operators  || true
 else
         log_info "Istio namespace not found, skipping Istio cleanup"
 fi
@@ -458,7 +460,7 @@ for ns in "${knative_namespaces[@]}"; do
 done
 
 log_info "Deleting OperatorGroup in openshift-serverless"
-oc delete OperatorGroup serverless-operators -n openshift-serverless --ignore-not-found || true
+oc delete OperatorGroup serverless-operators -n openshift-serverless  || true
 
 log_success "Knative cleanup completed"
 }
