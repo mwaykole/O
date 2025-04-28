@@ -21,7 +21,7 @@ def parse_args() -> argparse.Namespace:
                            help="Install all operators")
     operators.add_argument("--cleanup", action="store_true",
                            help="clean up all RHOAI, serverless , servishmesh , Authorino Operator ")
-    operators.add_argument("--deploy-rhoai-resources", required='--rhoai' in sys.argv,
+    operators.add_argument("--deploy-rhoai-resources",
                            action="store_true", help="creates dsc and dsci")
 
     # Configuration options
