@@ -92,8 +92,23 @@ run_tests() {
     local log_file=$3
 
     echo -e "\n\033[1;36m[TEST PHASE]\033[0m ${test_type}-upgrade for ${scenario}"
+    case "$scenario" in
+        "rawdeployment")
+            dependent_operators=''
+            ;;
+        "serverless,rawdeployment")
+            dependent_operators='servicemeshoperator,authorino-operator,serverless-operator'
+            ;;
+        "serverless")
+            dependent_operators='servicemeshoperator,serverless-operator'
+            ;;
+        *)
+            error_exit "Unknown scenario: $scenario"
+            ;;
+    esac
+
     if run_cmd uv run pytest "--${test_type}-upgrade"  --upgrade-deployment-modes="${scenario}" \
-         --tc=distribution:downstream  \
+          --tc=dependent_operators:"${dependent_operators}" --tc=distribution:downstream  \
          2>&1 | tee "$log_file"; then
         parse_test_results "$log_file" "$scenario" "$test_type"
         return 0
@@ -143,7 +158,7 @@ toimage="quay.io/rhoai/rhoai-fbc-fragment:rhoai-${version2}"
 
 declare -A scenarios=(
     ["serverless,rawdeployment"]="--serverless --authorino --servicemesh"
-    ["serverless"]="--serverless --servicemesh"
+    ["serverless"]="--serverless --servicemesh "
     ["rawdeployment"]=""
 )
 
