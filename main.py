@@ -5,11 +5,13 @@ from utils.operator.cleanup import cleanup
 from cli.args import parse_args
 from cli.commands import install_operator, install_operators
 from logger.logger import Logger
+from typing import Optional
 
 logger = Logger.get_logger(__name__)
 
 
-def main() -> int | None:
+def main() -> Optional[int]:
+
     """Main entry point for the operator installation tool."""
 
     def display_large_banner():
