@@ -8,11 +8,21 @@ DEPENDENCIES=("oc" "uv" "python" "git")
 # shellcheck disable=SC2034
 REQUIRED_NAMESPACES=("redhat-ods-operator" "redhat-ods-applications")
 
+# Default values
+SKIP_CLEANUP=false
+SCENARIOS_TO_RUN=()
+
 # Global variables for tracking test results
 declare -A test_results
 declare -A scenario_status
 declare -A pre_test_status
 declare -A post_test_status
+
+# Check for required environment variables
+if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
+    echo "Warning: AWS credentials not set. Some tests may fail."
+    echo "Please set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables."
+fi
 
 # Function to print and execute commands
 run_cmd() {
@@ -94,7 +104,8 @@ run_tests() {
     echo -e "\n\033[1;36m[TEST PHASE]\033[0m ${test_type}-upgrade for ${scenario}"
     case "$scenario" in
         "rawdeployment")
-            dependent_operators=''
+            # For rawdeployment, we use empty string for dependent operators
+            dependent_operators=""
             ;;
         "serverless,rawdeployment")
             dependent_operators='servicemeshoperator,authorino-operator,serverless-operator'
@@ -146,23 +157,82 @@ print_final_results() {
     fi
 }
 
-# Main execution
-if [ $# -ne 4 ]; then
-    error_exit "Usage: $0 <current_version> <current_channel> <new_version> <new_channel>\nExample: $0 1.5.0 stable 1.6.0 stable"
+# Function to print usage
+print_usage() {
+    echo "Usage: $0 [options] <current_version> <current_channel> <new_version> <new_channel>"
+    echo ""
+    echo "Options:"
+    echo "  -h, --help                 Show this help message"
+    echo "  -s, --scenario SCENARIO    Run specific scenario(s). Can be used multiple times."
+    echo "                            Available scenarios: serverless, rawdeployment, serverless,rawdeployment"
+    echo "  --skip-cleanup            Skip cleanup before each scenario"
+    echo ""
+    echo "Example:"
+    echo "  $0 -s serverless -s rawdeployment 2.10 stable 2.12 stable"
+    echo "  $0 --skip-cleanup 2.10 stable 2.12 stable"
+}
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -h|--help)
+            print_usage
+            exit 0
+            ;;
+        -s|--scenario)
+            SCENARIOS_TO_RUN+=("$2")
+            shift 2
+            ;;
+        --skip-cleanup)
+            SKIP_CLEANUP=true
+            shift
+            ;;
+        *)
+            # If it's not an option, it must be the version/channel arguments
+            if [ $# -ne 4 ]; then
+                echo "Error: Invalid number of arguments"
+                print_usage
+                exit 1
+            fi
+            version1=$1
+            channel1=$2
+            version2=$3
+            channel2=$4
+            shift 4
+            ;;
+    esac
+done
+
+# Validate required arguments
+if [ -z "${version1:-}" ] || [ -z "${channel1:-}" ] || [ -z "${version2:-}" ] || [ -z "${channel2:-}" ]; then
+    echo "Error: Missing required arguments"
+    print_usage
+    exit 1
 fi
 
-version1=$1
-channel1=$2
-version2=$3
-channel2=$4
+
 fromimage="quay.io/rhoai/rhoai-fbc-fragment:rhoai-${version1}"
 toimage="quay.io/rhoai/rhoai-fbc-fragment:rhoai-${version2}"
 
 declare -A scenarios=(
     ["serverless,rawdeployment"]="--serverless --authorino --servicemesh"
-    ["serverless"]="--serverless --servicemesh "
+    ["serverless"]="--serverless --servicemesh"
     ["rawdeployment"]=""
 )
+
+# If no specific scenarios provided, run all
+if [ ${#SCENARIOS_TO_RUN[@]} -eq 0 ]; then
+    SCENARIOS_TO_RUN=("${!scenarios[@]}")
+fi
+
+# Validate scenarios
+for scenario in "${SCENARIOS_TO_RUN[@]}"; do
+    if [[ ! -v "scenarios[$scenario]" ]]; then
+        echo "Error: Invalid scenario '$scenario'"
+        echo "Available scenarios: ${!scenarios[*]}"
+        exit 1
+    fi
+done
 
 # Initialize status tracking
 for scenario in "${!scenarios[@]}"; do
@@ -175,7 +245,7 @@ done
 check_dependencies
 
 # Process each scenario
-for scenario in "${!scenarios[@]}"; do
+for scenario in "${SCENARIOS_TO_RUN[@]}"; do
     echo -e "\n\033[1;35m==================== [SCENARIO: ${scenario^^}] ====================\033[0m"
     timestamp=$(date +%Y%m%d%H%M)
     mkdir -p logs
@@ -189,9 +259,13 @@ for scenario in "${!scenarios[@]}"; do
         raw="False"
     fi
 
-    # Cleanup before scenario
-    echo -e "\n\033[1;33m[CLEANUP]\033[0m Preparing environment for scenario"
-    run_cmd python main.py --cleanup
+    # Cleanup before scenario (if not skipped)
+    if [ "$SKIP_CLEANUP" = false ]; then
+        echo -e "\n\033[1;33m[CLEANUP]\033[0m Preparing environment for scenario"
+        run_cmd python main.py --cleanup
+    else
+        echo -e "\n\033[1;33m[SKIPPING CLEANUP]\033[0m Continuing with existing environment"
+    fi
 
     # PRE-UPGRADE PHASE
     echo -e "\n\033[1;32m[PHASE 1] PRE-UPGRADE INSTALLATION\033[0m"
