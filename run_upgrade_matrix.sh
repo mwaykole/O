@@ -302,7 +302,7 @@ for scenario in "${SCENARIOS_TO_RUN[@]}"; do
 
     # Verify deployment
     echo -e "\n\033[1;33m[VERIFICATION]\033[0m Checking system status"
-    sleep 10
+    sleep 600 && oc get pods -n redhat-ods-applications -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.phase}{"\n"}{end}' | grep -v Running
 
     # POST-UPGRADE TESTS
     echo -e "\n\033[1;32m[PHASE 3] POST-UPGRADE VALIDATION\033[0m"
