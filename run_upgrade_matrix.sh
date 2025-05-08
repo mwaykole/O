@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Configuration
-CHANNEL="fast"
+# CHANNEL="fast"
 TEST_REPO="https://github.com/opendatahub-io/opendatahub-tests.git"
 DEPENDENCIES=("oc" "uv" "python" "git")
 # shellcheck disable=SC2034
@@ -147,12 +147,14 @@ print_final_results() {
 }
 
 # Main execution
-if [ $# -ne 2 ]; then
-    error_exit "Usage: $0 <current_version> <new_version>\nExample: $0 1.5.0 1.6.0"
+if [ $# -ne 4 ]; then
+    error_exit "Usage: $0 <current_version> <current_channel> <new_version> <new_channel>\nExample: $0 1.5.0 stable 1.6.0 stable"
 fi
 
 version1=$1
-version2=$2
+channel1=$2
+version2=$3
+channel2=$4
 fromimage="quay.io/rhoai/rhoai-fbc-fragment:rhoai-${version1}"
 toimage="quay.io/rhoai/rhoai-fbc-fragment:rhoai-${version2}"
 
@@ -197,7 +199,7 @@ for scenario in "${!scenarios[@]}"; do
     # shellcheck disable=SC2086
     run_cmd python main.py ${scenarios[$scenario]} \
         --rhoai \
-        --rhoai-channel="$CHANNEL" \
+        --rhoai-channel="$channel1" \
         --rhoai-image="$fromimage" \
         --raw="$raw" \
         --deploy-rhoai-resources
@@ -220,7 +222,7 @@ for scenario in "${!scenarios[@]}"; do
     echo -e "\n\033[1;32m[PHASE 2] UPGRADE EXECUTION\033[0m"
     echo "Upgrading to version: $version2"
     run_cmd python main.py --rhoai \
-        --rhoai-channel="$CHANNEL" \
+        --rhoai-channel="$channel2" \
         --rhoai-image="$toimage" \
         --raw="$raw"
 
