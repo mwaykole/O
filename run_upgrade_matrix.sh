@@ -11,6 +11,9 @@ REQUIRED_NAMESPACES=("redhat-ods-operator" "redhat-ods-applications")
 # Default values
 SKIP_CLEANUP=false
 SCENARIOS_TO_RUN=()
+TOTAL_WAIT_TIME=300  # 10 minutes in seconds
+FROM_IMAGE=""
+TO_IMAGE=""
 
 # Global variables for tracking test results
 declare -A test_results
@@ -118,13 +121,17 @@ run_tests() {
             ;;
     esac
 
-    if run_cmd uv run pytest "--${test_type}-upgrade"  --upgrade-deployment-modes="${scenario}" \
+    # Run tests and capture output, but don't exit on failure
+    if uv run pytest "--${test_type}-upgrade"  --upgrade-deployment-modes="${scenario}" \
           --tc=dependent_operators:"${dependent_operators}" --tc=distribution:downstream  \
          2>&1 | tee "$log_file"; then
         parse_test_results "$log_file" "$scenario" "$test_type"
         return 0
     else
+        # Even if tests fail, parse results and continue
         parse_test_results "$log_file" "$scenario" "$test_type"
+        echo -e "\n\033[1;31m[WARNING] Tests failed for ${test_type}-upgrade in scenario ${scenario}\033[0m"
+        echo -e "See detailed results in: $log_file"
         return 1
     fi
 }
@@ -166,10 +173,13 @@ print_usage() {
     echo "  -s, --scenario SCENARIO    Run specific scenario(s). Can be used multiple times."
     echo "                            Available scenarios: serverless, rawdeployment, serverless,rawdeployment"
     echo "  --skip-cleanup            Skip cleanup before each scenario"
+    echo "  --from-image IMAGE        Custom source image path (default: quay.io/rhoai/rhoai-fbc-fragment:rhoai-{version})"
+    echo "  --to-image IMAGE          Custom target image path (default: quay.io/rhoai/rhoai-fbc-fragment:rhoai-{version})"
     echo ""
     echo "Example:"
     echo "  $0 -s serverless -s rawdeployment 2.10 stable 2.12 stable"
     echo "  $0 --skip-cleanup 2.10 stable 2.12 stable"
+    echo "  $0 --from-image custom.registry/rhoai:1.5.0 --to-image custom.registry/rhoai:1.6.0 2.10 stable 2.12 stable"
 }
 
 # Parse command line arguments
@@ -186,6 +196,14 @@ while [[ $# -gt 0 ]]; do
         --skip-cleanup)
             SKIP_CLEANUP=true
             shift
+            ;;
+        --from-image)
+            FROM_IMAGE="$2"
+            shift 2
+            ;;
+        --to-image)
+            TO_IMAGE="$2"
+            shift 2
             ;;
         *)
             # If it's not an option, it must be the version/channel arguments
@@ -210,9 +228,21 @@ if [ -z "${version1:-}" ] || [ -z "${channel1:-}" ] || [ -z "${version2:-}" ] ||
     exit 1
 fi
 
+# Set image paths
+if [ -z "$FROM_IMAGE" ]; then
+    fromimage="quay.io/rhoai/rhoai-fbc-fragment:rhoai-${version1}"
+else
+    fromimage="$FROM_IMAGE"
+fi
 
-fromimage="quay.io/rhoai/rhoai-fbc-fragment:rhoai-${version1}"
-toimage="quay.io/rhoai/rhoai-fbc-fragment:rhoai-${version2}"
+if [ -z "$TO_IMAGE" ]; then
+    toimage="quay.io/rhoai/rhoai-fbc-fragment:rhoai-${version2}"
+else
+    toimage="$TO_IMAGE"
+fi
+
+echo "Using source image: $fromimage"
+echo "Using target image: $toimage"
 
 declare -A scenarios=(
     ["serverless,rawdeployment"]="--serverless --authorino --servicemesh"
@@ -243,6 +273,46 @@ done
 
 # Pre-flight checks
 check_dependencies
+
+# Function to show progress bar
+show_progress() {
+    local duration=$1
+    local message=$2
+    local interval=1
+    local elapsed=0
+    
+    echo -e "\n\033[1;36m${message}\033[0m"
+    echo -n "["
+    
+    while [ $elapsed -lt $duration ]; do
+        sleep $interval
+        elapsed=$((elapsed + interval))
+        local progress=$((elapsed * 50 / duration))
+        local remaining=$((50 - progress))
+        
+        printf "%${progress}s" | tr " " "="
+        printf "%${remaining}s" | tr " " "-"
+        printf "] %d%%\r" $((elapsed * 100 / duration))
+    done
+    echo
+}
+
+# Function to check pod status
+check_pod_status() {
+    local namespace="redhat-ods-applications"
+    local not_running_pods
+    
+    not_running_pods=$(oc get pods -n "$namespace" -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.phase}{"\n"}{end}' | grep -v Running)
+    
+    if [ -n "$not_running_pods" ]; then
+        echo -e "\n\033[1;31m[WARNING] Found pods not in Running state:\033[0m"
+        echo "$not_running_pods"
+        return 1
+    else
+        echo -e "\n\033[1;32m[SUCCESS] All pods are in Running state\033[0m"
+        return 0
+    fi
+}
 
 # Process each scenario
 for scenario in "${SCENARIOS_TO_RUN[@]}"; do
@@ -300,9 +370,10 @@ for scenario in "${SCENARIOS_TO_RUN[@]}"; do
         --rhoai-image="$toimage" \
         --raw="$raw"
 
-    # Verify deployment
+    # Verify deployment with progress bar
     echo -e "\n\033[1;33m[VERIFICATION]\033[0m Checking system status"
-    sleep 600 && oc get pods -n redhat-ods-applications -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.phase}{"\n"}{end}' | grep -v Running
+    show_progress $TOTAL_WAIT_TIME "Waiting for pods to stabilize..."
+    check_pod_status || echo -e "\033[1;33m[WARNING] Some pods may not be ready, but continuing with tests...\033[0m"
 
     # POST-UPGRADE TESTS
     echo -e "\n\033[1;32m[PHASE 3] POST-UPGRADE VALIDATION\033[0m"
