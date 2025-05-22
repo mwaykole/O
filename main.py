@@ -2,8 +2,8 @@
 import sys
 sys.dont_write_bytecode = True
 from utils.operator.cleanup import cleanup
-from cli.args import parse_args
-from cli.commands import install_operator, install_operators
+from cli.args import parse_args, build_config, select_operators
+from cli.commands import install_operator, install_operators, run_upgrade_matrix
 from logger.logger import Logger
 from typing import Optional
 
@@ -11,7 +11,6 @@ logger = Logger.get_logger(__name__)
 
 
 def main() -> Optional[int]:
-
     """Main entry point for the operator installation tool."""
 
     def display_large_banner():
@@ -34,8 +33,25 @@ def main() -> Optional[int]:
     display_large_banner()
     try:
         args = parse_args()
-        if args.cleanup:
-            cleanup()
+        
+        # Handle upgrade matrix command
+        if args.run_matrix:
+            from_version, from_channel, to_version, to_channel = args.run_matrix
+            config = build_config(args)
+            config.update({
+                'from_version': from_version,
+                'from_channel': from_channel,
+                'to_version': to_version,
+                'to_channel': to_channel,
+                'scenarios': args.scenario,
+                'skip_cleanup': args.skip_cleanup,
+                'from_image': args.from_image,
+                'to_image': args.to_image
+            })
+            
+            if not run_upgrade_matrix(config):
+                return 1
+            return 0
 
         config = {
             'oc_binary': args.oc_binary,
@@ -48,6 +64,11 @@ def main() -> Optional[int]:
             'create_dsc_dsci': args.deploy_rhoai_resources,
         }
         logger.info(config)
+
+        if args.cleanup:
+            cleanup()
+            return 0
+
         # Determine which operators to install
         selected_ops = {
             'serverless': args.serverless or args.all,

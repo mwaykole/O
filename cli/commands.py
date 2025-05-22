@@ -7,6 +7,7 @@ import logging
 from typing import Dict, Any
 
 from utils.operator.operator import OpenShiftOperatorInstaller
+from utils.upgrade.matrix import run_upgrade_matrix
 
 logger = logging.getLogger(__name__)
 

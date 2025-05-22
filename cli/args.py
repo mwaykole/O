@@ -42,6 +42,19 @@ def parse_args() -> argparse.Namespace:
                         default="quay.io/rhoai/rhoai-fbc-fragment:rhoai-2.20-nightly",
                         help="rhoai image eg: quay.io/rhoai/rhoai-fbc-fragment:rhoai-2.20-nightly")
 
+    # Upgrade Matrix options
+    upgrade = parser.add_argument_group("Upgrade Matrix")
+    upgrade.add_argument("--run-matrix", nargs=4, metavar=('FROM_VERSION', 'FROM_CHANNEL', 'TO_VERSION', 'TO_CHANNEL'),
+                        help="Run upgrade matrix test. Example: --run-matrix 2.20 stable 2.19 fast")
+    upgrade.add_argument("--scenario", action="append", choices=['serverless', 'rawdeployment', 'serverless,rawdeployment'],
+                        help="Specific scenario(s) to run in upgrade matrix")
+    upgrade.add_argument("--skip-cleanup", action="store_true",
+                        help="Skip cleanup before each scenario in upgrade matrix")
+    upgrade.add_argument("--from-image", type=str,
+                        help="Custom source image path for upgrade matrix")
+    upgrade.add_argument("--to-image", type=str,
+                        help="Custom target image path for upgrade matrix")
+
     # Output control
     output = parser.add_argument_group("Output Control")
     output.add_argument("-v", "--verbose", action="store_true",
@@ -52,7 +65,7 @@ def parse_args() -> argparse.Namespace:
 
 def build_config(args: argparse.Namespace) -> Dict[str, Any]:
     """Convert parsed args to operator config dictionary"""
-    return {
+    config = {
         'oc_binary': args.oc_binary,
         'max_retries': args.retries,
         'retry_delay': args.retry_delay,
@@ -61,6 +74,22 @@ def build_config(args: argparse.Namespace) -> Dict[str, Any]:
         'rhoai_channel': args.rhoai_channel,
         'raw': args.raw,
     }
+
+    # Add upgrade matrix configuration if --run-matrix is used
+    if args.run_matrix:
+        from_version, from_channel, to_version, to_channel = args.run_matrix
+        config.update({
+            'from_version': from_version,
+            'from_channel': from_channel,
+            'to_version': to_version,
+            'to_channel': to_channel,
+            'scenarios': args.scenario,
+            'skip_cleanup': args.skip_cleanup,
+            'from_image': args.from_image,
+            'to_image': args.to_image
+        })
+
+    return config
 
 
 def select_operators(args: argparse.Namespace) -> Dict[str, bool]:
