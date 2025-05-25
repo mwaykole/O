@@ -13,7 +13,6 @@ logger = Logger.get_logger(__name__)
 def main() -> Optional[int]:
 
     """Main entry point for the operator installation tool."""
-
     def display_large_banner():
         banner = r"""
            OOOOOOOOO     

@@ -1,6 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
+# Get the directory where the script is located
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cd "$SCRIPT_DIR"
+
 # Configuration
 # CHANNEL="fast"
 TEST_REPO="https://github.com/opendatahub-io/opendatahub-tests.git"
