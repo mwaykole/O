@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "RhoShift"
+name = "rhoshift"
 version = "0.1.0"
-description = "Red Hat OpenShift AI Upgrade Matrix Testing Tool"
+description = "RHOAI tool kit for managing and upgrading RHOAI"
 requires-python = ">=3.8"
 dependencies = [
     "pytest",
@@ -15,10 +15,12 @@ dependencies = [
     "requests",
     "kubernetes",
 ]
+[tool.hatch.build.targets.wheel]
+packages = ["rhoshift"]
 
 [project.scripts]
+rhoshift = "main:main"
 run-upgrade-matrix = "rhoai_upgrade_matrix.cli:run_upgrade_matrix"
-rhoai-toolkit = "main:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
