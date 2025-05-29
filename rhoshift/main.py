@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 import sys
 sys.dont_write_bytecode = True
-from utils.operator.cleanup import cleanup
-from cli.args import parse_args
-from cli.commands import install_operator, install_operators
-from logger.logger import Logger
+from rhoshift.utils.operator.cleanup import cleanup
+from rhoshift.cli.args import parse_args
+from rhoshift.cli.commands import install_operator, install_operators
+from rhoshift.logger.logger import Logger
 from typing import Optional
+import pyfiglet
+
 
 logger = Logger.get_logger(__name__)
 
@@ -13,24 +15,10 @@ logger = Logger.get_logger(__name__)
 def main() -> Optional[int]:
 
     """Main entry point for the operator installation tool."""
-    def display_large_banner():
-        banner = r"""
-           OOOOOOOOO     
-         OO:::::::::OO   
-       OO:::::::::::::OO 
-      O:::::::OOO:::::::O
-      O::::::O   O::::::O
-      O:::::O     O:::::O
-      O:::::O     O:::::O
-      O::::::O   O::::::O
-      O:::::::OOO:::::::O
-       OO:::::::::::::OO 
-         OO:::::::::OO   
-           OOOOOOOOO     
-        """
-        print(banner.center(50))
+    import pyfiglet;
+    print("\n".join(["      ".join(line) for line in
+                     zip(*[pyfiglet.figlet_format(c, font="banner3-D").splitlines() for c in "RHOSHIFT"])]))
 
-    display_large_banner()
     try:
         args = parse_args()
         if args.cleanup:
