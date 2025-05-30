@@ -39,6 +39,8 @@ This tool helps test upgrade scenarios for OpenDataHub between different version
   - Default: `quay.io/rhoai/rhoai-fbc-fragment:rhoai-{version}`
 - `--to-image IMAGE`: Custom target image path
   - Default: `quay.io/rhoai/rhoai-fbc-fragment:rhoai-{version}`
+- `--wait-time SECONDS`: Total wait time in seconds for pods to stabilize
+  - Default: 1200 (20 minutes)
 
 ## Available Scenarios
 
@@ -63,6 +65,11 @@ This tool helps test upgrade scenarios for OpenDataHub between different version
 ### Basic Upgrade Test
 ```bash
 ./run_upgrade_matrix.sh 2.10 stable 2.12 stable
+```
+
+### Test with Custom Wait Time
+```bash
+./run_upgrade_matrix.sh --wait-time 1800 2.10 stable 2.12 stable  # 30 minutes wait time
 ```
 
 ### Test Specific Scenario

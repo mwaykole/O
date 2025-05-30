@@ -15,7 +15,8 @@ REQUIRED_NAMESPACES=("redhat-ods-operator" "redhat-ods-applications")
 # Default values
 SKIP_CLEANUP=false
 SCENARIOS_TO_RUN=()
-TOTAL_WAIT_TIME=600  # 10 minutes in seconds
+# Default wait time of 20 minutes (1200 seconds)
+TOTAL_WAIT_TIME=1200
 FROM_IMAGE=""
 TO_IMAGE=""
 
@@ -237,11 +238,13 @@ print_usage() {
     echo "  --skip-cleanup            Skip cleanup before each scenario"
     echo "  --from-image IMAGE        Custom source image path (default: quay.io/rhoai/rhoai-fbc-fragment:rhoai-{version})"
     echo "  --to-image IMAGE          Custom target image path (default: quay.io/rhoai/rhoai-fbc-fragment:rhoai-{version})"
+    echo "  -w, --wait-time SECONDS   Set the wait time in seconds (default: 1200) after upgrade"
     echo ""
     echo "Example:"
     echo "  $0 -s serverless -s rawdeployment 2.10 stable 2.12 stable"
     echo "  $0 --skip-cleanup 2.10 stable 2.12 stable"
     echo "  $0 --from-image custom.registry/rhoai:1.5.0 --to-image custom.registry/rhoai:1.6.0 2.10 stable 2.12 stable"
+    echo "  $0 -w 1800 2.10 stable 2.12 stable"
 }
 
 # Parse command line arguments
@@ -265,6 +268,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --to-image)
             TO_IMAGE="$2"
+            shift 2
+            ;;
+        -w|--wait-time)
+            TOTAL_WAIT_TIME="$2"
             shift 2
             ;;
         *)
