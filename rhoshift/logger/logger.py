@@ -9,7 +9,7 @@ from pathlib import Path
 class Logger:
     """
     A comprehensive logging utility with these features:
-    - Default logs to test.log with DEBUG level
+    - Default logs to /tmp/rhoshift.log with DEBUG level
     - Console logs with INFO level
     - Automatic log rotation
     - Function call logging decorator
@@ -17,50 +17,40 @@ class Logger:
     - Thread-safe operations
     """
 
-    _configured = False
-    _default_log_file = 'test.log'
-    _max_log_size = 5 * 1024 * 1024  # 5MB
-    _backup_count = 3
+    _logger: Optional[logging.Logger] = None
+    _max_log_size = 10 * 1024 * 1024  # 10MB
+    _backup_count = 5
+    _log_dir = Path("/tmp")
+    _log_file = _log_dir / "rhoshift.log"
 
     @classmethod
-    def get_logger(cls, name: Optional[str] = None) -> logging.Logger:
-        """Get a configured logger instance.
-
-        Args:
-            name: Logger name (usually __name__)
-
-        Returns:
-            Configured logger instance
-        """
-        if not cls._configured:
-            cls._configure_root_logger()
-            cls._configured = True
+    def get_logger(cls, name: str) -> logging.Logger:
+        """Get or create a logger instance."""
+        if cls._logger is None:
+            cls._setup_logger()
         return logging.getLogger(name)
 
     @classmethod
-    def _configure_root_logger(cls) -> None:
-        """Configure the root logger with file and console handlers."""
-        logger = logging.getLogger()
-        logger.setLevel(logging.DEBUG)
-
-        # Clear existing handlers to avoid duplicates
-        for handler in logger.handlers[:]:
-            logger.removeHandler(handler)
-
-        # Create logs directory if it doesn't exist
-        log_path = Path(cls._get_log_file())
-        log_path.parent.mkdir(exist_ok=True, parents=True)
-
-        # Formatter with colored levels if available
+    def _setup_logger(cls) -> None:
+        """Set up the root logger with file and console handlers."""
+        # Create formatter
         formatter = cls._create_formatter()
 
-        # File handler with rotation
-        file_handler = cls._create_file_handler(log_path, formatter)
-        logger.addHandler(file_handler)
+        # Create handlers
+        try:
+            file_handler = cls._create_file_handler(cls._log_file, formatter)
+            console_handler = cls._create_console_handler(formatter)
+        except Exception as e:
+            print(f"Warning: Could not set up log handlers: {e}", file=sys.stderr)
+            return
 
-        # Console handler
-        console_handler = cls._create_console_handler(formatter)
-        logger.addHandler(console_handler)
+        # Configure root logger
+        root_logger = logging.getLogger()
+        root_logger.setLevel(logging.DEBUG)
+        root_logger.addHandler(file_handler)
+        root_logger.addHandler(console_handler)
+
+        cls._logger = root_logger
 
     @classmethod
     def _create_formatter(cls) -> logging.Formatter:
@@ -91,14 +81,14 @@ class Logger:
         try:
             from logging.handlers import RotatingFileHandler
             handler = RotatingFileHandler(
-                filename=log_path,
+                filename=str(log_path),  # Convert Path to string
                 maxBytes=cls._max_log_size,
                 backupCount=cls._backup_count,
                 encoding='utf-8'
             )
         except ImportError:
             handler = logging.FileHandler(
-                filename=log_path,
+                filename=str(log_path),  # Convert Path to string
                 encoding='utf-8'
             )
 
@@ -113,11 +103,6 @@ class Logger:
         handler.setLevel(os.getenv('LOG_CONSOLE_LEVEL', 'INFO'))
         handler.setFormatter(formatter)
         return handler
-
-    @classmethod
-    def _get_log_file(cls) -> str:
-        """Get the log file path from environment or default."""
-        return os.getenv('LOG_FILE', cls._default_log_file)
 
     @classmethod
     def configure(
@@ -137,12 +122,12 @@ class Logger:
             console_level: Console log level (DEBUG, INFO, etc.)
             file_level: File log level
         """
-        if cls._configured:
+        if cls._logger:
             cls.get_logger(__name__).warning("Logger already configured, settings not applied")
             return
 
         if default_log_file:
-            cls._default_log_file = default_log_file
+            cls._log_file = Path(default_log_file)
         if max_log_size:
             cls._max_log_size = max_log_size
         if backup_count:

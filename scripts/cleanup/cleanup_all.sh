@@ -352,7 +352,7 @@ for crd in $(oc get crd --no-headers | grep -E "kserve|knative|istio|opendatahub
     log_info "Force-removing finalizers and deleting CRD: ${crd}"
 
     # Fire and forget style: no wait, no loop
-    oc patch crd "$crd" --type=json -p='[{"op": "remove", "path": "/metadata/finalizers"}]'  --timeout=5s || true
+    oc patch crd "$crd" --type=json -p='[{"op": "remove", "path": "/metadata/finalizers"}]' || true
     oc delete crd "$crd" --force --grace-period=0  --timeout=5s || true
 done
 ) &
@@ -361,14 +361,14 @@ sleep 30
 # Delete CRDs from the list
 for crd in "${crds_to_delete[@]}"; do
         log_info "Deleting CRD: ${crd}"
-        oc patch crd "$crd" -p '{"metadata":{"finalizers":[]}}' --type=merge  --timeout=5s || true
+        oc patch crd "$crd" -p '{"metadata":{"finalizers":[]}}' --type=merge || true
         oc delete crd "$crd" --force --grace-period=0  --timeout=5s || true
 done
 
 log_info "Deleting CRDs by pattern..."
 for crd in $(oc get crd --no-headers | grep -E "kserve|knative|istio|opendatahub|serverless|authorino" | awk '{print $1}'); do
         log_info "Deleting CRD: ${crd}"
-        oc patch crd "$crd" -p '{"metadata":{"finalizers":[]}}' --type=merge   --timeout=5s|| true
+        oc patch crd "$crd" -p '{"metadata":{"finalizers":[]}}' --type=merge || true
         oc delete crd "$crd" --force --grace-period=0  --timeout=5s|| true
 done
 

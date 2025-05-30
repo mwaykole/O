@@ -90,8 +90,10 @@ spec:
 
 
 class WaitTime:
-    WAIT_TIME_10_MIN = 60 * 10
-    WAIT_TIME_5_MIN = 30 * 10
+    WAIT_TIME_10_MIN = 10 * 60  # 10 minutes in seconds
+    WAIT_TIME_5_MIN = 5 * 60  # 5 minutes in seconds
+    WAIT_TIME_1_MIN = 60  # 1 minute in seconds
+    WAIT_TIME_30_SEC = 30  # 30 seconds
 
 
 def get_dsc_manifest(enable_dashboard=True,
@@ -100,7 +102,6 @@ def get_dsc_manifest(enable_dashboard=True,
                      enable_modelmeshserving=True,
                      operator_namespace="rhods-operator"):
     def to_state(flag): return "Managed" if flag else "Removed"
-
 
     return f"""apiVersion: datasciencecluster.opendatahub.io/v1
 kind: DataScienceCluster

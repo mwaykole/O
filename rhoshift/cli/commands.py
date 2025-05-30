@@ -6,7 +6,7 @@ sys.dont_write_bytecode = True
 import logging
 from typing import Dict, Any
 
-from utils.operator.operator import OpenShiftOperatorInstaller
+from rhoshift.utils.operator.operator import OpenShiftOperatorInstaller
 
 logger = logging.getLogger(__name__)
 
@@ -39,9 +39,9 @@ def install_operator(op_name: str, config: Dict[str, Any]) -> bool:
             'rhoai_image': config.get("rhoai_image"),
             'raw': config.get("raw", False),
             'create_dsc_dsci': config.get("create_dsc_dsci", False),
-            'csv_name': 'rhods-operator',
+            'csv_name': "opendatahub-operator" if config.get("rhoai_channel") == "odh-nightlies" else "rhods-operator",
             'namespace': 'redhat-ods-operators',
-            'display': 'display:RHOAI Operator'
+            'display': 'ODH Operator' if config.get("rhoai_channel") == "odh-nightlies" else 'RHOAI Operator'
         },
     }
     if op_name not in operator_map:
@@ -85,3 +85,4 @@ def install_operators(selected_ops: Dict[str, bool], config: Dict[str, Any]) -> 
             if not install_operator(op_name, config):
                 success = False
     return success
+

@@ -1,0 +1,11 @@
+include LICENSE
+include README.md
+include scripts/run_upgrade_matrix.sh
+include scripts/cleanup/cleanup_all.sh
+global-exclude *.pyc
+global-exclude *.pyo
+global-exclude *.pyd
+global-exclude __pycache__
+global-exclude *.so
+recursive-include scripts *.sh
+recursive-include rhoshift/scripts *.sh
