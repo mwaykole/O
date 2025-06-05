@@ -1,3 +1,11 @@
+"""
+OpenShift Operator Management Module
+
+This module provides functionality for installing, monitoring, and managing various OpenShift operators
+including Serverless, Service Mesh, Authorino, and RHOAI operators. It handles operator lifecycle
+management, status monitoring, and cleanup operations.
+"""
+
 # operator.py
 import concurrent.futures
 import json
@@ -6,35 +14,121 @@ import os
 import tempfile
 import time
 from typing import Dict, List, Tuple, Optional
-from utils.constants import OpenShiftOperatorInstallManifest
-from utils.constants import WaitTime
+from rhoshift.utils.constants import OpenShiftOperatorInstallManifest
+from rhoshift.utils.constants import WaitTime
 
-import utils.constants as constants
-from utils.utils import run_command, apply_manifest, wait_for_resource_for_specific_status
+import rhoshift.utils.constants as constants
+from rhoshift.utils.utils import run_command, apply_manifest, wait_for_resource_for_specific_status
 
 logger = logging.getLogger(__name__)
 
 
 class OpenShiftOperatorInstaller:
-    """Handles installation and monitoring of OpenShift operators."""
+    """
+    Manages the installation and lifecycle of OpenShift operators.
+    
+    This class provides methods for installing, monitoring, and uninstalling various OpenShift
+    operators with proper error handling and status verification.
+    """
+
+    OPERATOR_CONFIGS = {
+        'serverless-operator': {
+            'manifest': OpenShiftOperatorInstallManifest.SERVERLESS_MANIFEST,
+            'namespace': 'openshift-serverless',
+            'display_name': 'Serverless Operator'
+        },
+        'servicemeshoperator': {
+            'manifest': OpenShiftOperatorInstallManifest.SERVICEMESH_MANIFEST,
+            'namespace': 'openshift-operators',
+            'display_name': 'Service Mesh Operator'
+        },
+        'authorino-operator': {
+            'manifest': OpenShiftOperatorInstallManifest.AUTHORINO_MANIFEST,
+            'namespace': 'openshift-operators',
+            'display_name': 'Authorino Operator'
+        },
+        'kueue-operator': {
+            'manifest': OpenShiftOperatorInstallManifest.KUEUE_MANIFEST,
+            'namespace': 'openshift-kueue-operator',
+            'display_name': 'Kueue Operator'
+        },
+        'custom-metrics-autoscaler': {
+            'manifest': OpenShiftOperatorInstallManifest.KEDA_MANIFEST,
+            'namespace': 'openshift-keda',
+            'display_name': 'KEDA (Custom Metrics Autoscaler) Operator'
+        }
+    }
+
+    @classmethod
+    def install_operator(cls, operator_name: str, **kwargs) -> Tuple[int, str, str]:
+        """Install an OpenShift operator by name."""
+        if operator_name not in cls.OPERATOR_CONFIGS:
+            raise ValueError(f"Unknown operator: {operator_name}")
+            
+        config = cls.OPERATOR_CONFIGS[operator_name]
+        logger.info(f"Installing {config['display_name']}...")
+        return cls._install_operator(operator_name, config['manifest'], **kwargs)
 
     @classmethod
     def install_serverless_operator(cls, **kwargs) -> Tuple[int, str, str]:
         """Install the OpenShift Serverless Operator."""
-        manifest = OpenShiftOperatorInstallManifest.SERVERLESS_MANIFEST
-        return cls._install_operator("serverless-operator", manifest, **kwargs)
+        return cls.install_operator('serverless-operator', **kwargs)
 
     @classmethod
     def install_service_mesh_operator(cls, **kwargs) -> Tuple[int, str, str]:
         """Install the Service Mesh Operator."""
-        manifest = OpenShiftOperatorInstallManifest.SERVICEMESH_MANIFEST
-        return cls._install_operator("servicemeshoperator", manifest, **kwargs)
+        return cls.install_operator('servicemeshoperator', **kwargs)
 
     @classmethod
     def install_authorino_operator(cls, **kwargs) -> Tuple[int, str, str]:
         """Install the Authorino Operator."""
-        manifest = OpenShiftOperatorInstallManifest.AUTHORINO_MANIFEST
-        return cls._install_operator("authorino-operator", manifest, **kwargs)
+        return cls.install_operator('authorino-operator', **kwargs)
+
+    @classmethod
+    def install_kueue_operator(cls, **kwargs) -> Tuple[int, str, str]:
+        """Install the Kueue Operator."""
+        return cls.install_operator('kueue-operator', **kwargs)
+
+    @classmethod
+    def install_keda_operator(cls, **kwargs) -> Tuple[int, str, str]:
+        """Install the KEDA (Custom Metrics Autoscaler) Operator."""
+        result = cls.install_operator('custom-metrics-autoscaler', **kwargs)
+        
+        # After successful installation, create the KedaController resource
+        if result[0] == 0:
+            logger.info("Creating KedaController resource...")
+            keda_controller_manifest = """
+apiVersion: keda.sh/v1alpha1
+kind: KedaController
+metadata:
+  name: keda
+  namespace: openshift-keda
+spec:
+  watchNamespace: ''
+  operator:
+    logLevel: info
+    logEncoder: console
+  metricsServer:
+    logLevel: '0'
+  serviceAccount: {}
+"""
+            cmd = f"{kwargs.get('oc_binary', 'oc')} apply -f - <<EOF\n{keda_controller_manifest}\nEOF"
+            try:
+                rc, stdout, stderr = run_command(
+                    cmd,
+                    max_retries=kwargs.get('max_retries', 3),
+                    retry_delay=kwargs.get('retry_delay', 10),
+                    timeout=kwargs.get('timeout', WaitTime.WAIT_TIME_5_MIN),
+                    log_output=True
+                )
+                if rc == 0:
+                    logger.info("KedaController resource created successfully")
+                else:
+                    logger.warning(f"Failed to create KedaController resource: {stderr}")
+            except Exception as e:
+                logger.warning(f"Failed to create KedaController resource: {str(e)}")
+        
+        return result
 
     @classmethod
     def install_rhoai_operator(
@@ -44,26 +138,40 @@ class OpenShiftOperatorInstaller:
             **kwargs
     ) -> Dict[str, Dict[str, str]]:
         """
-        Install RHOAI (Red Hat OpenShift AI) Operator using the olminstall script.
+        Installs the Red Hat OpenShift AI (RHOAI) Operator using the olminstall script.
 
         Args:
-            channel: The channel to install from (e.g., 'stable' or 'nightly')
-            rhoai_image: The RHOAI image to install
-            oc_binary: Path to oc binary (default: 'oc')
-            timeout: Timeout in seconds for installation (default: 1200)
-            **kwargs: Additional arguments to pass to run_command
+            oc_binary: Path to OpenShift CLI binary
+            timeout: Installation timeout in seconds
+            **kwargs: Additional parameters:
+                - rhoai_channel: Installation channel (stable/nightly)
+                - rhoai_image: RHOAI container image
+                - raw: Enable raw serving
+                - create_dsc_dsci: Create Data Science Cluster/Instance
 
         Returns:
-            Dictionary with installation results
+            Dict containing installation results and status
+
+        Raises:
+            RuntimeError: If required parameters are missing or installation fails
         """
+        # Validate required parameters
+        required_params = ['rhoai_channel', 'rhoai_image', 'raw', 'create_dsc_dsci']
+        for param in required_params:
+            if param not in kwargs:
+                raise RuntimeError(f"Missing required parameter: {param}")
+
         channel = kwargs.pop("rhoai_channel")
         rhoai_image = kwargs.pop("rhoai_image")
-        is_Raw = kwargs.pop('raw')
-        create_dsc_dsci = kwargs.pop('create_dsc_dsci')
-        temp_dir = tempfile.mkdtemp()
-        results = {}
+        is_Raw = bool(kwargs.pop('raw'))  
+        create_dsc_dsci = bool(kwargs.pop('create_dsc_dsci'))  
+
         if not channel or not rhoai_image:
             raise RuntimeError("Both channel and rhoai_image are required")
+
+        temp_dir = tempfile.mkdtemp()
+        results = {}
+
         try:
             # Clone the olminstall repository
             clone_cmd = (
@@ -81,9 +189,10 @@ class OpenShiftOperatorInstaller:
                 raise RuntimeError(f"Failed to clone olminstall repo: {stderr}")
 
             # Run the setup script
+            extra_params = " -n rhods-operator -p opendatahub-operators" if channel == "odh-nightlies" else ""
             install_cmd = (
                 f"cd {temp_dir} && "
-                f"./setup.sh -t operator -u {channel} -i {rhoai_image}"
+                f"./setup.sh -t operator -u {channel} -i {rhoai_image}{extra_params}"
             )
 
             rc, stdout, stderr = run_command(
@@ -96,20 +205,23 @@ class OpenShiftOperatorInstaller:
             if rc != 0:
                 raise RuntimeError(f"RHOAI installation failed: {stderr}")
 
+            namespace = "opendatahub-operator" if channel == "odh-nightlies" else "redhat-ods-operator"
+            operator_name = "opendatahub-operator.1.18.0" if channel == "odh-nightlies" else "rhods-operator"
+            # namespace = "redhat-ods-operator"
             # Wait for the operator to be ready
             results = cls.wait_for_operator(
-                operator_name="rhods-operator",
-                namespace="redhat-ods-operator",
+                operator_name=operator_name,
+                namespace=namespace,
                 oc_binary=oc_binary,
                 timeout=timeout
             )
 
-            if results.get("rhods-operator", {}).get("status") != "installed":
+            if results.get(operator_name, {}).get("status") != "installed":
                 raise RuntimeError("RHOAI Operator installation timed out")
 
             logger.info("✅ RHOAI Operator installed successfully")
             if create_dsc_dsci:
-                # craete new dsc and dsci
+                # create new dsc and dsci
                 cls.deploy_dsc_dsci(kserve_raw=is_Raw, channel=channel,
                                     create_dsc_dsci=create_dsc_dsci)
 
@@ -211,7 +323,6 @@ class OpenShiftOperatorInstaller:
     ) -> Dict[str, Dict[str, str]]:
         results = {}
         end_time = time.time() + timeout
-
         def _check_operator(op: Dict[str, str]) -> Tuple[str, bool, str]:
             last_message = ""
             while time.time() < end_time:
@@ -260,41 +371,43 @@ class OpenShiftOperatorInstaller:
     def force_delete_rhoai_dsc_dsci(cls,
                                     oc_binary: str = "oc",
                                     timeout: int = WaitTime.WAIT_TIME_5_MIN,
+                                    channel: str = None,
                                     **kwargs
                                     ) -> Dict[str, Dict[str, str]]:
         """
-        Execute specific commands to delete RHOAI resources with finalizer cleanup.
+        Removes RHOAI Data Science Cluster and Instance resources with finalizer cleanup.
 
         Args:
-            oc_binary: Path to oc CLI (default: 'oc')
-            timeout: Timeout in seconds for commands (default: 300)
-            **kwargs: Additional arguments for run_command
+            oc_binary: Path to OpenShift CLI binary
+            timeout: Command execution timeout in seconds
+            **kwargs: Additional arguments for command execution
 
         Returns:
-            Dictionary with command execution results
+            Dict containing command execution results and status
         """
         results = {}
-
+        ods_namespace = "opendatahub" if channel == "odh-nightlies" else "redhat-ods-operator"
+        application_namespace = "opendatahub" if channel == "odh-nightlies" else "redhat-ods-applications"
         # Define the exact commands to run in order
         commands = [
             {
                 "name": "delete_dsc",
-                "cmd": f"{oc_binary} delete dsc --all -n redhat-ods-applications --wait=true --timeout={timeout}s",
+                "cmd": f"{oc_binary} delete dsc --all -n {application_namespace} --wait=true --timeout={timeout}s",
                 "description": "Delete all DSC resources"
             },
             {
                 "name": "clean_dsci_finalizers",
-                "cmd": f"{oc_binary} get dsci -n redhat-ods-operator -o name | xargs -I {{}} {oc_binary} patch {{}} -n redhat-ods-operator --type=merge -p '{{\"metadata\":{{\"finalizers\":[]}}}}'",
+                "cmd": f"{oc_binary} get dsci -n {ods_namespace} -o name | xargs -I {{}} {oc_binary} patch {{}} -n {ods_namespace} --type=merge -p '{{\"metadata\":{{\"finalizers\":[]}}}}'",
                 "description": "Remove DSCI finalizers"
             },
             {
                 "name": "delete_dsci",
-                "cmd": f"{oc_binary} delete dsci --all -n redhat-ods-operator --wait=true --timeout={timeout}s",
+                "cmd": f"{oc_binary} delete dsci --all -n {ods_namespace} --wait=true --timeout={timeout}s",
                 "description": "Delete all DSCI resources"
             },
             {
                 "name": "clean_dsc_finalizers",
-                "cmd": f"{oc_binary} get dsc -n redhat-ods-applications -o name | xargs -I {{}} {oc_binary} patch {{}} -n redhat-ods-applications --type=merge -p '{{\"metadata\":{{\"finalizers\":[]}}}}'",
+                "cmd": f"{oc_binary} get dsc -n {application_namespace} -o name | xargs -I {{}} {oc_binary} patch {{}} -n {application_namespace} --type=merge -p '{{\"metadata\":{{\"finalizers\":[]}}}}'",
                 "description": "Remove DSC finalizers"
             }
         ]
@@ -332,10 +445,17 @@ class OpenShiftOperatorInstaller:
 
     @classmethod
     def deploy_dsc_dsci(cls, channel, kserve_raw=False, create_dsc_dsci=False):
-        kserve_raw = kserve_raw == "True"
-        # create_dsc_dsci = create_dsc_dsci == "True"
-        logging.debug(f" Creating DSC and DSCI resource.....")
+        """
+        Deploys Data Science Cluster and Instance resources for RHOAI.
+
+        Args:
+            channel: Installation channel
+            kserve_raw: Enable raw serving
+            create_dsc_dsci: Create new DSC/DSCI resources
+        """
+        logging.debug("Deploying Data Science Cluster and Instance resources...")
         if create_dsc_dsci:
+
             # Delete old dsc and dsci
             result = cls.force_delete_rhoai_dsc_dsci()
             # Check results
@@ -372,10 +492,11 @@ class OpenShiftOperatorInstaller:
 
         # Deploy DataScienceCluster
         apply_manifest(constants.get_dsc_manifest(enable_raw_serving=kserve_raw, **dsc_params))
+        namespace = "opendatahub" if channel == "odh-nightlies" else "redhat-ods-applications"
 
         success, out, err = wait_for_resource_for_specific_status(
             status="Ready",
-            cmd="oc get dsc/default-dsc -n redhat-ods-applications -o jsonpath='{.status.phase}'",
+            cmd=f"oc get dsc/default-dsc -n {namespace} -o jsonpath='{{.status.phase}}'",
             timeout=WaitTime.WAIT_TIME_10_MIN,
             interval=5,
             case_sensitive=True,
@@ -413,11 +534,22 @@ class OpenShiftOperatorInstaller:
 
     @classmethod
     def install_all_and_wait(cls, oc_binary="oc", **kwargs) -> Dict[str, Dict[str, str]]:
-        """Install all known operators in parallel and wait for them in parallel."""
+        """
+        Installs and monitors all supported operators in parallel.
+
+        Args:
+            oc_binary: Path to OpenShift CLI binary
+            **kwargs: Additional installation parameters
+
+        Returns:
+            Dict containing installation results for each operator
+        """
         install_methods = [
             ("serverless-operator", "openshift-serverless", cls.install_serverless_operator),
             ("servicemeshoperator", "openshift-operators", cls.install_service_mesh_operator),
             ("authorino-operator", "openshift-operators", cls.install_authorino_operator),
+            ("kueue-operator", "openshift-kueue-operator", cls.install_kueue_operator),
+            ("custom-metrics-autoscaler", "openshift-keda", cls.install_keda_operator),
             ("rhods-operator", "redhat-ods-operator", cls.install_rhoai_operator),
         ]
 

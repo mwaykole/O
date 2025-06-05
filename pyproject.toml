@@ -1,32 +1,77 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "rhoshift"
-version = "0.1.0"
-description = "RHOAI tool kit for managing and upgrading RHOAI"
-requires-python = ">=3.8"
-dependencies = [
-    "pytest",
-    "openshift-client",
-    "boto3", 
-    "python-dotenv",
-    "requests",
-    "kubernetes",
+version = "0.1.5.0"
+authors = [
+    { name = "Milind Waykole" },
 ]
-[tool.hatch.build.targets.wheel]
-packages = ["rhoshift"]
+description = "RHOAI tool kit for managing and upgrading RHOAI"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { file = "LICENSE" }
+keywords = ["rhoai", "openshift", "upgrade", "toolkit", "red hat"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "boto3>=1.26.0,<1.39.0",
+    "botocore>=1.29.0,<1.39.0",
+    "kubernetes>=26.1.0,<34.0.0",
+    "openshift-client>=1.0.2,<3.0.0",
+    "python-dotenv>=1.0.0,<2.0.0",
+    "requests>=2.31.0,<3.0.0",
+    "urllib3>=1.26.0,<3.0.0",
+    "colorlog>=6.7.0,<7.0.0",
+    "pyfiglet>=0.8.post1,<2.0.0",
+    "setuptools>=61.0,<76.0.0",
+    "typing-extensions>=4.7.0,<5.0.0",
+]
+
+[tool.setuptools]
+include-package-data = true
+packages = [
+    "rhoshift",
+    "rhoshift.cli",
+    "rhoshift.logger",
+    "rhoshift.rhoai_upgrade_matrix",
+    "rhoshift.utils",
+    "rhoshift.utils.operator",
+]
+
+[tool.setuptools.package-data]
+"rhoshift" = [
+    "scripts/cleanup/*.sh",
+    "scripts/run_upgrade_matrix.sh"
+]
 
 [project.scripts]
-rhoshift = "main:main"
-run-upgrade-matrix = "rhoai_upgrade_matrix.cli:run_upgrade_matrix"
+rhoshift = "rhoshift.main:main"
+run-upgrade-matrix = "rhoshift.rhoai_upgrade_matrix.cli:main"
 
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-python_files = ["test_*.py"]
-addopts = "--verbose"
+[project.urls]
+"Homepage" = "https://github.com/mwaykole/O"
+"Bug Tracker" = "https://github.com/mwaykole/O/issues"
 
-[tool.ruff]
-line-length = 100
-target-version = "py38" 
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-cov",
+]
+dev = [
+    "ruff",
+    "pre-commit",
+    "build",
+]

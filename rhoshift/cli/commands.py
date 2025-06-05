@@ -6,7 +6,7 @@ sys.dont_write_bytecode = True
 import logging
 from typing import Dict, Any
 
-from utils.operator.operator import OpenShiftOperatorInstaller
+from rhoshift.utils.operator.operator import OpenShiftOperatorInstaller
 
 logger = logging.getLogger(__name__)
 
@@ -33,15 +33,27 @@ def install_operator(op_name: str, config: Dict[str, Any]) -> bool:
             'namespace': 'openshift-operators',
             'display': '🔐 Authorino Operator'
         },
+        'kueue': {
+            'installer': OpenShiftOperatorInstaller.install_kueue_operator,
+            'csv_name': 'kueue-operator',
+            'namespace': 'openshift-kueue-operator',
+            'display': '📋 Kueue Operator'
+        },
+        'keda': {
+            'installer': OpenShiftOperatorInstaller.install_keda_operator,
+            'csv_name': 'custom-metrics-autoscaler',
+            'namespace': 'openshift-keda',
+            'display': '📊 KEDA (Custom Metrics Autoscaler) Operator'
+        },
         'rhoai': {
             'installer': OpenShiftOperatorInstaller.install_rhoai_operator,
             'channel': config.get("rhoai_channel"),
             'rhoai_image': config.get("rhoai_image"),
             'raw': config.get("raw", False),
             'create_dsc_dsci': config.get("create_dsc_dsci", False),
-            'csv_name': 'rhods-operator',
-            'namespace': 'redhat-ods-operators',
-            'display': 'display:RHOAI Operator'
+            'csv_name': "opendatahub-operator" if config.get("rhoai_channel") == "odh-nightlies" else "rhods-operator",
+            'namespace': 'opendatahub-operator' if config.get("rhoai_channel") == "odh-nightlies" else "rhods-operator",
+            'display': 'ODH Operator' if config.get("rhoai_channel") == "odh-nightlies" else 'RHOAI Operator'
         },
     }
     if op_name not in operator_map:
@@ -85,3 +97,4 @@ def install_operators(selected_ops: Dict[str, bool], config: Dict[str, Any]) -> 
             if not install_operator(op_name, config):
                 success = False
     return success
+

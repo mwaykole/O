@@ -56,6 +56,66 @@ spec:
   sourceNamespace: openshift-marketplace
 """
 
+    KUEUE_MANIFEST = """\
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openshift-kueue-operator
+---
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: kueue-operator-group
+  namespace: openshift-kueue-operator
+spec:
+  targetNamespaces:
+  - openshift-kueue-operator
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: kueue-operator
+  namespace: openshift-kueue-operator
+  labels:
+    operators.coreos.com/kueue-operator.openshift-kueue-operator: ""
+spec:
+  channel: stable
+  installPlanApproval: Automatic
+  name: kueue-operator
+  source: certified-operators
+  sourceNamespace: openshift-marketplace
+"""
+
+    KEDA_MANIFEST = """\
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openshift-keda
+---
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: keda-operator-group
+  namespace: openshift-keda
+spec:
+  targetNamespaces:
+  - openshift-keda
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: custom-metrics-autoscaler
+  namespace: openshift-keda
+  labels:
+    operators.coreos.com/custom-metrics-autoscaler.openshift-keda: ""
+spec:
+  channel: stable
+  installPlanApproval: Automatic
+  name: custom-metrics-autoscaler
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+"""
+
 
 def get_dsci_manifest(kserve_raw=True,
                       applications_namespace="redhat-ods-applications",
@@ -90,8 +150,10 @@ spec:
 
 
 class WaitTime:
-    WAIT_TIME_10_MIN = 60 * 10
-    WAIT_TIME_5_MIN = 30 * 10
+    WAIT_TIME_10_MIN = 10 * 60  # 10 minutes in seconds
+    WAIT_TIME_5_MIN = 5 * 60  # 5 minutes in seconds
+    WAIT_TIME_1_MIN = 60  # 1 minute in seconds
+    WAIT_TIME_30_SEC = 30  # 30 seconds
 
 
 def get_dsc_manifest(enable_dashboard=True,
@@ -100,7 +162,6 @@ def get_dsc_manifest(enable_dashboard=True,
                      enable_modelmeshserving=True,
                      operator_namespace="rhods-operator"):
     def to_state(flag): return "Managed" if flag else "Removed"
-
 
     return f"""apiVersion: datasciencecluster.opendatahub.io/v1
 kind: DataScienceCluster

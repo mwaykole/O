@@ -17,6 +17,10 @@ def parse_args() -> argparse.Namespace:
                            help="Install Authorino Operator")
     operators.add_argument("--rhoai", action="store_true",
                            help="Install RHOArawI Operator")
+    operators.add_argument("--kueue", action="store_true",
+                           help="Install Kueue Operator")
+    operators.add_argument("--keda", action="store_true",
+                           help="Install KEDA (Custom Metrics Autoscaler) Operator")
     operators.add_argument("--all", action="store_true",
                            help="Install all operators")
     operators.add_argument("--cleanup", action="store_true",
@@ -70,12 +74,16 @@ def select_operators(args: argparse.Namespace) -> Dict[str, bool]:
             'serverless': True,
             'servicemesh': True,
             'authorino': True,
-            'rhoai': True
+            'rhoai': True,
+            'kueue': True,
+            'keda': True
         }
 
     return {
         'serverless': args.serverless,
         'servicemesh': args.servicemesh,
         'authorino': args.authorino,
-        'rhoai': args.rhoai
+        'rhoai': args.rhoai,
+        'kueue': args.kueue,
+        'keda': args.keda
     }

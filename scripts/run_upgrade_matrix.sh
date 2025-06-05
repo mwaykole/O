@@ -15,9 +15,50 @@ REQUIRED_NAMESPACES=("redhat-ods-operator" "redhat-ods-applications")
 # Default values
 SKIP_CLEANUP=false
 SCENARIOS_TO_RUN=()
-TOTAL_WAIT_TIME=300  # 10 minutes in seconds
+# Default wait time of 20 minutes (1200 seconds)
+TOTAL_WAIT_TIME=1200
 FROM_IMAGE=""
 TO_IMAGE=""
+
+# Log directory setup
+LOG_DIR="/tmp/rhoshift-logs"
+MAIN_LOG="/tmp/rhoshift.log"
+TEST_DIR="${LOG_DIR}/opendatahub-tests"
+mkdir -p "$LOG_DIR"
+
+# Set up logging
+exec 1> >(tee -a "${LOG_DIR}/upgrade-matrix-$(date +%Y%m%d%H%M).log")
+exec 2>&1
+
+# Logging function
+log() {
+    local level=$1
+    local message=$2
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    local log_entry="[${timestamp}] [${level}] $message"
+    
+    # Write to main log file
+    echo "$log_entry" >> "$MAIN_LOG"
+    
+    # Also display on console with colors
+    case $level in
+        "INFO")
+            echo -e "\033[1;32m${log_entry}\033[0m"
+            ;;
+        "WARNING")
+            echo -e "\033[1;33m${log_entry}\033[0m"
+            ;;
+        "ERROR")
+            echo -e "\033[1;31m${log_entry}\033[0m"
+            ;;
+        "DEBUG")
+            echo -e "\033[1;34m${log_entry}\033[0m"
+            ;;
+        *)
+            echo -e "\033[1;37m${log_entry}\033[0m"
+            ;;
+    esac
+}
 
 # Global variables for tracking test results
 declare -A test_results
@@ -27,25 +68,26 @@ declare -A post_test_status
 
 # Check for required environment variables
 if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
-    echo "Warning: AWS credentials not set. Some tests may fail."
-    echo "Please set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables."
+    log "WARNING" "AWS credentials not set. Some tests may fail."
+    log "WARNING" "Please set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables."
 fi
 
 # Function to print and execute commands
 run_cmd() {
-    echo -e "\n\033[1;34m[RUNNING]\033[0m $*"
-    "$@"
+    log "INFO" "Executing command: $*"
+    "$@" 2>&1 | tee -a "${LOG_DIR}/command-$(date +%Y%m%d%H%M).log"
     local status=$?
     if [ $status -ne 0 ]; then
-        echo -e "\033[1;31m[FAILED]\033[0m Command exited with status $status"
+        log "ERROR" "Command failed with status $status: $*"
         return $status
     fi
+    log "DEBUG" "Command completed successfully: $*"
     return 0
 }
 
 # Error handling
 error_exit() {
-    echo -e "\033[1;31m[ERROR]\033[0m $1" 1>&2
+    log "ERROR" "$1"
     exit 1
 }
 
@@ -102,16 +144,28 @@ parse_test_results() {
     fi
 }
 
-# Run tests with output
+# Function to clone or update test repository
+setup_test_repo() {
+    if [ -d "$TEST_DIR" ]; then
+        log "INFO" "Updating existing test repository in $TEST_DIR"
+        cd "$TEST_DIR" || error_exit "Failed to change to test directory: $TEST_DIR"
+        run_cmd git pull --quiet
+        cd - > /dev/null || error_exit "Failed to return to previous directory"
+    else
+        log "INFO" "Cloning test repository to $TEST_DIR"
+        run_cmd git clone --quiet "$TEST_REPO" "$TEST_DIR"
+    fi
+}
+
+# Function to run tests with output
 run_tests() {
     local test_type=$1
     local scenario=$2
     local log_file=$3
 
-    echo -e "\n\033[1;36m[TEST PHASE]\033[0m ${test_type}-upgrade for ${scenario}"
+    log "INFO" "Running ${test_type}-upgrade tests for ${scenario}"
     case "$scenario" in
         "rawdeployment")
-            # For rawdeployment, we use empty string for dependent operators
             dependent_operators=""
             ;;
         "serverless,rawdeployment")
@@ -125,45 +179,50 @@ run_tests() {
             ;;
     esac
 
-    # Run tests and capture output, but don't exit on failure
+    # Run tests and capture output
+    log "INFO" "Running ${test_type}-upgrade tests for ${scenario}"
+    log "DEBUG" "Changing to test directory: $TEST_DIR"
+    cd "$TEST_DIR" || error_exit "Failed to change to test directory: $TEST_DIR"
+    
     if uv run pytest "--${test_type}-upgrade"  --upgrade-deployment-modes="${scenario}" \
           --tc=dependent_operators:"${dependent_operators}" --tc=distribution:downstream  \
-         2>&1 | tee "$log_file"; then
+         2>&1 | tee -a "$log_file"; then
         parse_test_results "$log_file" "$scenario" "$test_type"
+        cd - > /dev/null || error_exit "Failed to return to previous directory"
         return 0
     else
-        # Even if tests fail, parse results and continue
         parse_test_results "$log_file" "$scenario" "$test_type"
-        echo -e "\n\033[1;31m[WARNING] Tests failed for ${test_type}-upgrade in scenario ${scenario}\033[0m"
-        echo -e "See detailed results in: $log_file"
+        log "WARNING" "Tests failed for ${test_type}-upgrade in scenario ${scenario}"
+        log "WARNING" "See detailed results in: $log_file"
+        cd - > /dev/null || error_exit "Failed to return to previous directory"
         return 1
     fi
 }
 
 # Print final test results
 print_final_results() {
-    echo -e "\n\033[1;35m==================== FINAL TEST RESULTS ====================\033[0m"
+    log "INFO" "==================== FINAL TEST RESULTS ===================="
 
     local all_passed=true
 
     for scenario in "${!scenarios[@]}"; do
-        echo -e "\n\033[1;33mSCENARIO: ${scenario}\033[0m"
-        echo -e "  PRE-UPGRADE:  ${pre_test_status[$scenario]} - ${test_results["${scenario}_pre"]}"
-        echo -e "  POST-UPGRADE: ${post_test_status[$scenario]} - ${test_results["${scenario}_post"]}"
-        echo -e "  OVERALL:      ${scenario_status[$scenario]}"
+        log "INFO" "SCENARIO: ${scenario}"
+        log "INFO" "  PRE-UPGRADE:  ${pre_test_status[$scenario]} - ${test_results["${scenario}_pre"]}"
+        log "INFO" "  POST-UPGRADE: ${post_test_status[$scenario]} - ${test_results["${scenario}_post"]}"
+        log "INFO" "  OVERALL:      ${scenario_status[$scenario]}"
 
         if [[ "${scenario_status[$scenario]}" != "passed" ]]; then
             all_passed=false
         fi
     done
 
-    echo -e "\n\033[1;35m============================================================\033[0m"
+    log "INFO" "============================================================="
 
     if $all_passed; then
-        echo -e "\n\033[1;32m[SUCCESS] All upgrade scenarios completed successfully\033[0m"
+        log "INFO" "[SUCCESS] All upgrade scenarios completed successfully"
         return 0
     else
-        echo -e "\n\033[1;31m[FAILURE] Some scenarios failed. See details above.\033[0m"
+        log "ERROR" "[FAILURE] Some scenarios failed. See details above."
         return 1
     fi
 }
@@ -179,11 +238,13 @@ print_usage() {
     echo "  --skip-cleanup            Skip cleanup before each scenario"
     echo "  --from-image IMAGE        Custom source image path (default: quay.io/rhoai/rhoai-fbc-fragment:rhoai-{version})"
     echo "  --to-image IMAGE          Custom target image path (default: quay.io/rhoai/rhoai-fbc-fragment:rhoai-{version})"
+    echo "  -w, --wait-time SECONDS   Set the wait time in seconds (default: 1200) after upgrade"
     echo ""
     echo "Example:"
     echo "  $0 -s serverless -s rawdeployment 2.10 stable 2.12 stable"
     echo "  $0 --skip-cleanup 2.10 stable 2.12 stable"
     echo "  $0 --from-image custom.registry/rhoai:1.5.0 --to-image custom.registry/rhoai:1.6.0 2.10 stable 2.12 stable"
+    echo "  $0 -w 1800 2.10 stable 2.12 stable"
 }
 
 # Parse command line arguments
@@ -209,18 +270,23 @@ while [[ $# -gt 0 ]]; do
             TO_IMAGE="$2"
             shift 2
             ;;
+        -w|--wait-time)
+            TOTAL_WAIT_TIME="$2"
+            shift 2
+            ;;
         *)
             # If it's not an option, it must be the version/channel arguments
-            if [ $# -ne 4 ]; then
+            if [ -z "${version1:-}" ]; then
+                version1=$1
+                channel1=$2
+                version2=$3
+                channel2=$4
+                shift 4
+            else
                 echo "Error: Invalid number of arguments"
                 print_usage
                 exit 1
             fi
-            version1=$1
-            channel1=$2
-            version2=$3
-            channel2=$4
-            shift 4
             ;;
     esac
 done
@@ -245,8 +311,8 @@ else
     toimage="$TO_IMAGE"
 fi
 
-echo "Using source image: $fromimage"
-echo "Using target image: $toimage"
+log "INFO" "Using source image: $fromimage"
+log "INFO" "Using target image: $toimage"
 
 declare -A scenarios=(
     ["serverless,rawdeployment"]="--serverless --authorino --servicemesh"
@@ -282,23 +348,17 @@ check_dependencies
 show_progress() {
     local duration=$1
     local message=$2
-    local interval=1
+    local interval=10
     local elapsed=0
     
-    echo -e "\n\033[1;36m${message}\033[0m"
-    echo -n "["
+    log "INFO" "$message"
     
     while [ $elapsed -lt $duration ]; do
         sleep $interval
         elapsed=$((elapsed + interval))
-        local progress=$((elapsed * 50 / duration))
-        local remaining=$((50 - progress))
-        
-        printf "%${progress}s" | tr " " "="
-        printf "%${remaining}s" | tr " " "-"
-        printf "] %d%%\r" $((elapsed * 100 / duration))
+        local percentage=$((elapsed * 100 / duration))
+        log "DEBUG" "Progress: [${percentage}%] completed ${elapsed} seconds of ${duration} seconds"
     done
-    echo
 }
 
 # Function to check pod status
@@ -309,22 +369,26 @@ check_pod_status() {
     not_running_pods=$(oc get pods -n "$namespace" -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.phase}{"\n"}{end}' | grep -v Running)
     
     if [ -n "$not_running_pods" ]; then
-        echo -e "\n\033[1;31m[WARNING] Found pods not in Running state:\033[0m"
-        echo "$not_running_pods"
+        log "WARNING" "Found pods not in Running state:"
+        log "WARNING" "$not_running_pods"
         return 1
     else
-        echo -e "\n\033[1;32m[SUCCESS] All pods are in Running state\033[0m"
+        log "INFO" "All pods are in Running state"
         return 0
     fi
 }
 
 # Process each scenario
 for scenario in "${SCENARIOS_TO_RUN[@]}"; do
-    echo -e "\n\033[1;35m==================== [SCENARIO: ${scenario^^}] ====================\033[0m"
+    log "INFO" "==================== [SCENARIO: ${scenario^^}] ===================="
     timestamp=$(date +%Y%m%d%H%M)
-    mkdir -p logs
-    pre_log="logs/pre-${scenario}-${timestamp}.log"
-    post_log="logs/post-${scenario}-${timestamp}.log"
+    pre_log="${LOG_DIR}/pre-${scenario}-${timestamp}.log"
+    post_log="${LOG_DIR}/post-${scenario}-${timestamp}.log"
+    scenario_log="${LOG_DIR}/scenario-${scenario}-${timestamp}.log"
+
+    # Start logging scenario execution
+    exec 1> >(tee -a "$scenario_log")
+    exec 2>&1
 
     # Set parameters
     if [ "$scenario" == "rawdeployment" ]; then
@@ -335,57 +399,51 @@ for scenario in "${SCENARIOS_TO_RUN[@]}"; do
 
     # Cleanup before scenario (if not skipped)
     if [ "$SKIP_CLEANUP" = false ]; then
-        echo -e "\n\033[1;33m[CLEANUP]\033[0m Preparing environment for scenario"
-        run_cmd python main.py --cleanup
+        log "INFO" "Preparing environment for scenario"
+        run_cmd rhoshift --cleanup
     else
-        echo -e "\n\033[1;33m[SKIPPING CLEANUP]\033[0m Continuing with existing environment"
+        log "WARNING" "Skipping cleanup - continuing with existing environment"
     fi
 
     # PRE-UPGRADE PHASE
-    echo -e "\n\033[1;32m[PHASE 1] PRE-UPGRADE INSTALLATION\033[0m"
-    echo "Installing version: $version1 with options: ${scenarios[$scenario]}"
+    log "INFO" "[PHASE 1] PRE-UPGRADE INSTALLATION"
+    log "INFO" "Installing version: $version1 with options: ${scenarios[$scenario]}"
     # shellcheck disable=SC2086
-    run_cmd python main.py ${scenarios[$scenario]} \
+    run_cmd rhoshift ${scenarios[$scenario]} \
         --rhoai \
         --rhoai-channel="$channel1" \
         --rhoai-image="$fromimage" \
         --raw="$raw" \
         --deploy-rhoai-resources
 
-    # Clone/update tests
-    if [ -d "opendatahub-tests" ]; then
-        run_cmd cd opendatahub-tests
-        run_cmd git pull --quiet
-        run_cmd cd ..
-    else
-        run_cmd git clone --quiet "$TEST_REPO"
-    fi
+    # Setup test repository
+    setup_test_repo
 
     # PRE-UPGRADE TESTS
-    run_cmd cd opendatahub-tests
-    run_tests "pre" "$scenario" "../$pre_log"
-    run_cmd cd ..
+    run_tests "pre" "$scenario" "$pre_log"
 
     # UPGRADE PHASE
-    echo -e "\n\033[1;32m[PHASE 2] UPGRADE EXECUTION\033[0m"
-    echo "Upgrading to version: $version2"
-    run_cmd python main.py --rhoai \
+    log "INFO" "[PHASE 2] UPGRADE EXECUTION"
+    log "INFO" "Upgrading to version: $version2"
+    run_cmd rhoshift --rhoai \
         --rhoai-channel="$channel2" \
         --rhoai-image="$toimage" \
         --raw="$raw"
 
     # Verify deployment with progress bar
-    echo -e "\n\033[1;33m[VERIFICATION]\033[0m Checking system status"
+    log "INFO" "[VERIFICATION] Checking system status"
     show_progress $TOTAL_WAIT_TIME "Waiting for pods to stabilize..."
-    check_pod_status || echo -e "\033[1;33m[WARNING] Some pods may not be ready, but continuing with tests...\033[0m"
+    check_pod_status || log "WARNING" "Some pods may not be ready, but continuing with tests..."
 
     # POST-UPGRADE TESTS
-    echo -e "\n\033[1;32m[PHASE 3] POST-UPGRADE VALIDATION\033[0m"
-    run_cmd cd opendatahub-tests
-    run_tests "post" "$scenario" "../$post_log"
-    run_cmd cd ..
+    log "INFO" "[PHASE 3] POST-UPGRADE VALIDATION"
+    run_tests "post" "$scenario" "$post_log"
 
-    echo -e "\033[1;35m==================== [SCENARIO COMPLETE] ====================\033[0m"
+    log "INFO" "==================== [SCENARIO COMPLETE] ===================="
+    
+    # Restore original stdout/stderr
+    exec 1>&3
+    exec 2>&4
 done
 
 # Print final results
