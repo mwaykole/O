@@ -133,9 +133,10 @@ class OpenShiftOperatorInstaller:
                 raise RuntimeError(f"Failed to clone olminstall repo: {stderr}")
 
             # Run the setup script
+            extra_params = " -n rhods-operator -p opendatahub-operators" if channel == "odh-nightlies" else ""
             install_cmd = (
                 f"cd {temp_dir} && "
-                f"./setup.sh -t operator -u {channel} -i {rhoai_image}"
+                f"./setup.sh -t operator -u {channel} -i {rhoai_image}{extra_params}"
             )
 
             rc, stdout, stderr = run_command(
@@ -148,9 +149,9 @@ class OpenShiftOperatorInstaller:
             if rc != 0:
                 raise RuntimeError(f"RHOAI installation failed: {stderr}")
 
-            # namespace = "opendatahub" if channel == "odh-nightlies" else "redhat-ods-operator"
+            namespace = "opendatahub-operator" if channel == "odh-nightlies" else "redhat-ods-operator"
             operator_name = "opendatahub-operator.1.18.0" if channel == "odh-nightlies" else "rhods-operator"
-            namespace = "redhat-ods-operator"
+            # namespace = "redhat-ods-operator"
             # Wait for the operator to be ready
             results = cls.wait_for_operator(
                 operator_name=operator_name,

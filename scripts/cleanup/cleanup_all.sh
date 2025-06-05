@@ -342,6 +342,7 @@ local crds_to_delete=(
     "workloadpriorityclasses.kueue.x-k8s.io"
     "workloads.kueue.x-k8s.io"
     "lmevaljobs.trustyai.opendatahub.io"
+    
 )
 
 # Delete additional CRDs by pattern
@@ -362,14 +363,14 @@ sleep 30
 for crd in "${crds_to_delete[@]}"; do
         log_info "Deleting CRD: ${crd}"
         oc patch crd "$crd" -p '{"metadata":{"finalizers":[]}}' --type=merge || true
-        oc delete crd "$crd" --force --grace-period=0  --timeout=5s || true
+        oc delete crd "$crd"  --ignore-not-found --force --grace-period=0  --timeout=5s || true
 done
 
 log_info "Deleting CRDs by pattern..."
 for crd in $(oc get crd --no-headers | grep -E "kserve|knative|istio|opendatahub|serverless|authorino" | awk '{print $1}'); do
         log_info "Deleting CRD: ${crd}"
         oc patch crd "$crd" -p '{"metadata":{"finalizers":[]}}' --type=merge || true
-        oc delete crd "$crd" --force --grace-period=0  --timeout=5s|| true
+        oc delete crd "$crd" --ignore-not-found --force --grace-period=0  --timeout=5s|| true
 done
 
 log_success "CRDs cleanup completed"

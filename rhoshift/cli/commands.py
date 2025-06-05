@@ -40,7 +40,7 @@ def install_operator(op_name: str, config: Dict[str, Any]) -> bool:
             'raw': config.get("raw", False),
             'create_dsc_dsci': config.get("create_dsc_dsci", False),
             'csv_name': "opendatahub-operator" if config.get("rhoai_channel") == "odh-nightlies" else "rhods-operator",
-            'namespace': 'redhat-ods-operators',
+            'namespace': 'opendatahub-operator' if config.get("rhoai_channel") == "odh-nightlies" else "rhods-operator",
             'display': 'ODH Operator' if config.get("rhoai_channel") == "odh-nightlies" else 'RHOAI Operator'
         },
     }
