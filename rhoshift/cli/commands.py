@@ -33,6 +33,18 @@ def install_operator(op_name: str, config: Dict[str, Any]) -> bool:
             'namespace': 'openshift-operators',
             'display': '🔐 Authorino Operator'
         },
+        'kueue': {
+            'installer': OpenShiftOperatorInstaller.install_kueue_operator,
+            'csv_name': 'kueue-operator',
+            'namespace': 'openshift-kueue-operator',
+            'display': '📋 Kueue Operator'
+        },
+        'keda': {
+            'installer': OpenShiftOperatorInstaller.install_keda_operator,
+            'csv_name': 'custom-metrics-autoscaler',
+            'namespace': 'openshift-keda',
+            'display': '📊 KEDA (Custom Metrics Autoscaler) Operator'
+        },
         'rhoai': {
             'installer': OpenShiftOperatorInstaller.install_rhoai_operator,
             'channel': config.get("rhoai_channel"),

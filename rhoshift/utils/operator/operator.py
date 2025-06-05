@@ -46,6 +46,16 @@ class OpenShiftOperatorInstaller:
             'manifest': OpenShiftOperatorInstallManifest.AUTHORINO_MANIFEST,
             'namespace': 'openshift-operators',
             'display_name': 'Authorino Operator'
+        },
+        'kueue-operator': {
+            'manifest': OpenShiftOperatorInstallManifest.KUEUE_MANIFEST,
+            'namespace': 'openshift-kueue-operator',
+            'display_name': 'Kueue Operator'
+        },
+        'custom-metrics-autoscaler': {
+            'manifest': OpenShiftOperatorInstallManifest.KEDA_MANIFEST,
+            'namespace': 'openshift-keda',
+            'display_name': 'KEDA (Custom Metrics Autoscaler) Operator'
         }
     }
 
@@ -73,6 +83,52 @@ class OpenShiftOperatorInstaller:
     def install_authorino_operator(cls, **kwargs) -> Tuple[int, str, str]:
         """Install the Authorino Operator."""
         return cls.install_operator('authorino-operator', **kwargs)
+
+    @classmethod
+    def install_kueue_operator(cls, **kwargs) -> Tuple[int, str, str]:
+        """Install the Kueue Operator."""
+        return cls.install_operator('kueue-operator', **kwargs)
+
+    @classmethod
+    def install_keda_operator(cls, **kwargs) -> Tuple[int, str, str]:
+        """Install the KEDA (Custom Metrics Autoscaler) Operator."""
+        result = cls.install_operator('custom-metrics-autoscaler', **kwargs)
+        
+        # After successful installation, create the KedaController resource
+        if result[0] == 0:
+            logger.info("Creating KedaController resource...")
+            keda_controller_manifest = """
+apiVersion: keda.sh/v1alpha1
+kind: KedaController
+metadata:
+  name: keda
+  namespace: openshift-keda
+spec:
+  watchNamespace: ''
+  operator:
+    logLevel: info
+    logEncoder: console
+  metricsServer:
+    logLevel: '0'
+  serviceAccount: {}
+"""
+            cmd = f"{kwargs.get('oc_binary', 'oc')} apply -f - <<EOF\n{keda_controller_manifest}\nEOF"
+            try:
+                rc, stdout, stderr = run_command(
+                    cmd,
+                    max_retries=kwargs.get('max_retries', 3),
+                    retry_delay=kwargs.get('retry_delay', 10),
+                    timeout=kwargs.get('timeout', WaitTime.WAIT_TIME_5_MIN),
+                    log_output=True
+                )
+                if rc == 0:
+                    logger.info("KedaController resource created successfully")
+                else:
+                    logger.warning(f"Failed to create KedaController resource: {stderr}")
+            except Exception as e:
+                logger.warning(f"Failed to create KedaController resource: {str(e)}")
+        
+        return result
 
     @classmethod
     def install_rhoai_operator(
@@ -492,6 +548,8 @@ class OpenShiftOperatorInstaller:
             ("serverless-operator", "openshift-serverless", cls.install_serverless_operator),
             ("servicemeshoperator", "openshift-operators", cls.install_service_mesh_operator),
             ("authorino-operator", "openshift-operators", cls.install_authorino_operator),
+            ("kueue-operator", "openshift-kueue-operator", cls.install_kueue_operator),
+            ("custom-metrics-autoscaler", "openshift-keda", cls.install_keda_operator),
             ("rhods-operator", "redhat-ods-operator", cls.install_rhoai_operator),
         ]
 

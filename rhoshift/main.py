@@ -40,6 +40,8 @@ def main() -> Optional[int]:
             'serverless': args.serverless or args.all,
             'servicemesh': args.servicemesh or args.all,
             'authorino': args.authorino or args.all,
+            # 'kueue': args.kueue or args.all,
+            # 'keda': args.keda or args.all,
             'rhoai': args.rhoai,
         }
 

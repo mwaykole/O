@@ -56,6 +56,66 @@ spec:
   sourceNamespace: openshift-marketplace
 """
 
+    KUEUE_MANIFEST = """\
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openshift-kueue-operator
+---
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: kueue-operator-group
+  namespace: openshift-kueue-operator
+spec:
+  targetNamespaces:
+  - openshift-kueue-operator
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: kueue-operator
+  namespace: openshift-kueue-operator
+  labels:
+    operators.coreos.com/kueue-operator.openshift-kueue-operator: ""
+spec:
+  channel: stable
+  installPlanApproval: Automatic
+  name: kueue-operator
+  source: certified-operators
+  sourceNamespace: openshift-marketplace
+"""
+
+    KEDA_MANIFEST = """\
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openshift-keda
+---
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: keda-operator-group
+  namespace: openshift-keda
+spec:
+  targetNamespaces:
+  - openshift-keda
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: custom-metrics-autoscaler
+  namespace: openshift-keda
+  labels:
+    operators.coreos.com/custom-metrics-autoscaler.openshift-keda: ""
+spec:
+  channel: stable
+  installPlanApproval: Automatic
+  name: custom-metrics-autoscaler
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+"""
+
 
 def get_dsci_manifest(kserve_raw=True,
                       applications_namespace="redhat-ods-applications",

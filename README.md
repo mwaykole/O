@@ -26,6 +26,8 @@ A comprehensive toolkit for managing and upgrading Red Hat OpenShift AI (RHOAI) 
   - Service Mesh Operator
   - Authorino Operator
   - RHOAI Operator
+  - Kueue Operator
+  - KEDA (Custom Metrics Autoscaler) Operator
 
 ## 📁 Project Structure
 
@@ -96,13 +98,19 @@ rhoshift --serverless
 # Install multiple operators
 rhoshift --serverless --servicemesh
 
+# Install Kueue operator
+rhoshift --kueue
+
+# Install KEDA (Custom Metrics Autoscaler) operator
+rhoshift --keda
+
 # Install RHOAI with raw configuration
 rhoshift --rhoai --rhoai-channel=<channel> --rhoai-image=<image> --raw=True
 
 # Install RHOAI with Serverless configuration
 rhoshift --rhoai --rhoai-channel=<channel> --rhoai-image=<image> --raw=False --all
 
-# Install all operators
+# Install all operators (including Kueue and KEDA)
 rhoshift --all
 
 # Create DSC and DSCI with RHOAI operator installation
@@ -120,6 +128,12 @@ rhoshift --serverless --oc-binary /path/to/oc
 
 # Custom timeout (seconds)
 rhoshift --all --timeout 900
+
+# Install queue management and auto-scaling operators together
+rhoshift --kueue --keda
+
+# Install complete ML/AI stack with queue management
+rhoshift --rhoai --kueue --keda --rhoai-channel=stable --rhoai-image=<image>
 
 # Verbose output
 rhoshift --all --verbose
