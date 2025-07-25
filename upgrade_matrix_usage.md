@@ -1,236 +1,301 @@
-# OpenDataHub Upgrade Matrix Testing Tool
+# RHOAI Upgrade Matrix Testing Tool
 
-This tool helps test upgrade scenarios for OpenDataHub between different versions and channels. It performs pre-upgrade and post-upgrade tests to ensure a smooth upgrade process.
+This tool helps test upgrade scenarios for Red Hat OpenShift AI (RHOAI) between different versions and channels. It performs pre-upgrade and post-upgrade tests to ensure a smooth upgrade process using the OpenDataHub test suite.
 
 ## Prerequisites
 
-- OpenShift cluster access
-- `oc` command-line tool
-- `uv` command-line tool
+- OpenShift cluster access with appropriate permissions
+- `oc` command-line tool (logged into the cluster)
+- `uv` command-line tool for Python package management
 - Python 3.8 or higher
 - Git
-- AWS credentials (for certain tests)
-- UV 
+- AWS credentials (for certain tests) - set as environment variables:
+  - `AWS_ACCESS_KEY_ID`
+  - `AWS_SECRET_ACCESS_KEY`
+
+## Installation
+
+The upgrade matrix tool is installed as part of the rhoshift package and provides two ways to run:
+
+1. **Python CLI command** (recommended):
+```bash
+run-upgrade-matrix [options] <current_version> <current_channel> <new_version> <new_channel>
+```
+
+2. **Direct shell script**:
+```bash
+./scripts/run_upgrade_matrix.sh [options] <current_version> <current_channel> <new_version> <new_channel>
+```
 
 ## Basic Usage
 
+### Simple Upgrade Test
 ```bash
-./run_upgrade_matrix.sh <current_version> <current_channel> <new_version> <new_channel>
+# Using Python CLI (recommended)
+run-upgrade-matrix 2.10 stable 2.12 stable
+
+# Using shell script directly
+./scripts/run_upgrade_matrix.sh 2.10 stable 2.12 stable
 ```
 
-### Example
+### Example with specific scenarios
 ```bash
-./run_upgrade_matrix.sh 2.10 stable 2.12 stable
+run-upgrade-matrix -s serverless -s rawdeployment 2.10 stable 2.12 stable
 ```
 
 ## Command Line Options
 
-### Required Arguments
+### Required Arguments (positional)
 - `current_version`: The version to upgrade from (e.g., "2.10")
-- `current_channel`: The channel of the current version (e.g., "stable")
+- `current_channel`: The channel of the current version (e.g., "stable", "fast")
 - `new_version`: The version to upgrade to (e.g., "2.12")
-- `new_channel`: The channel of the new version (e.g., "stable")
+- `new_channel`: The channel of the new version (e.g., "stable", "fast")
 
 ### Optional Arguments
+- `-h, --help`: Show help message and exit
 - `-s, --scenario SCENARIO`: Run specific scenario(s). Can be used multiple times.
   - Available scenarios: `serverless`, `rawdeployment`, `serverless,rawdeployment`
-- `--skip-cleanup`: Skip cleanup before each scenario
+- `--skip-cleanup`: Skip cleanup before each scenario (useful for debugging)
 - `--from-image IMAGE`: Custom source image path
   - Default: `quay.io/rhoai/rhoai-fbc-fragment:rhoai-{version}`
 - `--to-image IMAGE`: Custom target image path
   - Default: `quay.io/rhoai/rhoai-fbc-fragment:rhoai-{version}`
-- `--wait-time SECONDS`: Total wait time in seconds for pods to stabilize
+- `-w, --wait-time SECONDS`: Wait time in seconds for pods to stabilize after upgrade
   - Default: 1200 (20 minutes)
 
-## Available Scenarios
+## Available Test Scenarios
 
-1. `serverless`: Tests serverless deployment with service mesh
-   - Includes Service Mesh Operator
-   - Includes Serverless Operator
-   - Uses `--serverless --servicemesh` flags
+The tool supports three main scenarios that test different deployment configurations:
 
-2. `rawdeployment`: Tests raw deployment without additional components
-   - Basic deployment testing
-   - No additional operators
-   - No additional flags
+### 1. `rawdeployment` 
+- **Description**: Tests basic RHOAI deployment without additional operators
+- **Configuration**: Raw serving enabled (`--raw=True`)
+- **Operators**: None (baseline RHOAI only)
+- **Use case**: Basic functionality testing
 
-3. `serverless,rawdeployment`: Tests both serverless and raw deployment with all components
-   - Includes Service Mesh Operator
-   - Includes Authorino Operator
-   - Includes Serverless Operator
-   - Uses `--serverless --authorino --servicemesh` flags
+### 2. `serverless`
+- **Description**: Tests RHOAI with serverless and service mesh capabilities
+- **Configuration**: Raw serving disabled (`--raw=False`)
+- **Operators**: Service Mesh, Serverless
+- **rhoshift flags**: `--serverless --servicemesh`
+- **Use case**: Serverless model serving scenarios
 
-## Examples
+### 3. `serverless,rawdeployment`
+- **Description**: Tests complete RHOAI stack with all supported operators
+- **Configuration**: Raw serving disabled (`--raw=False`)  
+- **Operators**: Service Mesh, Authorino, Serverless
+- **rhoshift flags**: `--serverless --authorino --servicemesh`
+- **Use case**: Full-featured deployment testing
 
-### Basic Upgrade Test
+## Usage Examples
+
+### Basic Examples
 ```bash
-./run_upgrade_matrix.sh 2.10 stable 2.12 stable
+# Test all scenarios (default behavior)
+run-upgrade-matrix 2.10 stable 2.12 stable
+
+# Test specific scenario
+run-upgrade-matrix -s serverless 2.10 stable 2.12 stable
+
+# Test multiple specific scenarios
+run-upgrade-matrix -s serverless -s rawdeployment 2.10 stable 2.12 stable
 ```
 
-### Test with Custom Wait Time
+### Advanced Examples
 ```bash
-./run_upgrade_matrix.sh --wait-time 1800 2.10 stable 2.12 stable  # 30 minutes wait time
-```
+# Custom wait time (30 minutes)
+run-upgrade-matrix -w 1800 2.10 stable 2.12 stable
 
-### Test Specific Scenario
-```bash
-./run_upgrade_matrix.sh -s serverless 2.10 stable 2.12 stable
-```
+# Skip cleanup (useful for debugging)
+run-upgrade-matrix --skip-cleanup 2.10 stable 2.12 stable
 
-### Test Multiple Scenarios
-```bash
-./run_upgrade_matrix.sh -s serverless -s rawdeployment 2.10 stable 2.12 stable
-```
-
-### Skip Cleanup
-```bash
-./run_upgrade_matrix.sh --skip-cleanup 2.10 stable 2.12 stable
-```
-
-### Use Custom Images
-```bash
 # Custom source image only
-./run_upgrade_matrix.sh --from-image custom.registry/rhoai:1.5.0 2.10 stable 2.12 stable
+run-upgrade-matrix --from-image custom.registry/rhoai:1.5.0 2.10 stable 2.12 stable
 
 # Both custom source and target images
-./run_upgrade_matrix.sh --from-image custom.registry/rhoai:1.5.0 --to-image custom.registry/rhoai:1.6.0 2.10 stable 2.12 stable
+run-upgrade-matrix \
+  --from-image custom.registry/rhoai:1.5.0 \
+  --to-image custom.registry/rhoai:1.6.0 \
+  2.10 stable 2.12 stable
+
+# Cross-channel upgrade with specific scenario
+run-upgrade-matrix -s serverless,rawdeployment 2.10 fast 2.12 stable
 ```
 
-## Test Process
+## Test Process Flow
 
-The script performs the following steps for each scenario:
+For each selected scenario, the tool executes the following phases:
 
-1. **Pre-flight Checks**
-   - Verifies all dependencies are installed
-   - Checks OpenShift cluster connection
-   - Validates AWS credentials
+### Phase 1: Pre-flight Checks
+- Validates all required dependencies are installed
+- Checks OpenShift cluster connection (`oc whoami`)
+- Warns if AWS credentials are not set
+- Validates scenario names and arguments
 
-2. **Pre-upgrade Phase**
-   - Cleans up existing resources (unless --skip-cleanup is used)
-   - Installs the current version
-   - Runs pre-upgrade tests
-   - Records test results
+### Phase 2: Pre-upgrade Setup
+- **Cleanup**: Removes existing RHOAI resources (unless `--skip-cleanup` is used)
+- **Installation**: Installs the source version with scenario-specific operators
+- **Test Repository**: Clones/updates OpenDataHub test repository to `/tmp/rhoshift-logs/opendatahub-tests`
+- **Pre-upgrade Tests**: Runs comprehensive pre-upgrade test suite
 
-3. **Upgrade Phase**
-   - Performs the upgrade to the new version
-   - Waits for pods to stabilize (5 minutes)
-   - Verifies pod status
+### Phase 3: Upgrade Execution
+- **Upgrade**: Installs the target version using the same configuration
+- **Stabilization**: Waits for pods to stabilize (configurable wait time)
+- **Verification**: Checks pod status in `redhat-ods-applications` namespace
 
-4. **Post-upgrade Phase**
-   - Runs post-upgrade tests
-   - Verifies system functionality
-   - Records test results
+### Phase 4: Post-upgrade Validation
+- **Post-upgrade Tests**: Runs comprehensive post-upgrade test suite
+- **Results**: Captures and parses test results
+- **Logging**: Stores detailed logs for analysis
 
 ## Output and Logging
 
-The script provides detailed output including:
-- Command execution status with color-coded messages
-- Progress bars for waiting periods
-- Pod status information
-- Test results for each phase
-- Final summary of all scenarios
-The script provides a summary of test results at the end of execution, showing:
-- Pre-upgrade test status
-- Post-upgrade test status
-- Overall scenario status
-### Log Files
-Logs are stored in the `logs` directory with timestamps:
-- Pre-upgrade logs: `logs/pre-{scenario}-{timestamp}.log`
-- Post-upgrade logs: `logs/post-{scenario}-{timestamp}.log`
+### Log Files Location
+All logs are stored in `/tmp/rhoshift-logs/`:
+- **Main log**: `/tmp/rhoshift.log` - General rhoshift operations
+- **Upgrade matrix log**: `/tmp/rhoshift-logs/upgrade-matrix-YYYYMMDDHHMM.log` - Full execution log
+- **Scenario logs**: `/tmp/rhoshift-logs/scenario-{scenario}-{timestamp}.log` - Per-scenario logs
+- **Test logs**: 
+  - `/tmp/rhoshift-logs/pre-{scenario}-{timestamp}.log` - Pre-upgrade test results
+  - `/tmp/rhoshift-logs/post-{scenario}-{timestamp}.log` - Post-upgrade test results
+- **Command logs**: `/tmp/rhoshift-logs/command-{timestamp}.log` - Individual command outputs
 
-## Error Handling
+### Console Output Features
+- **Color-coded messages**: Green (INFO), Yellow (WARNING), Red (ERROR), Blue (DEBUG)
+- **Progress indicators**: Shows progress during wait periods
+- **Real-time status**: Live command execution output
+- **Phase indicators**: Clear separation of test phases
+- **Results summary**: Final status of all scenarios
 
-The script includes comprehensive error handling:
-- Validates all inputs before starting
-- Checks for required dependencies
-- Verifies scenario names
-- Provides clear error messages
-- Maintains test results even if some scenarios fail
+### Test Results Format
+Test results are parsed and displayed showing:
+- **Pre-upgrade status**: passed/failed with test summary
+- **Post-upgrade status**: passed/failed with test summary  
+- **Overall scenario status**: passed/failed based on both phases
+- **Test details**: Number of tests passed/failed/skipped
 
-## Cleanup
+## Error Handling and Recovery
 
-By default, the script performs cleanup before each scenario to ensure a clean test environment. You can skip cleanup using the `--skip-cleanup` option, which is useful for:
-- Debugging failed tests
-- Continuing from a previous run
-- Testing in an existing environment
+### Failure Types
+1. **Command Execution Failures**: Individual commands may fail but testing continues
+2. **Test Phase Failures**: Pre or post-upgrade tests may fail
+3. **Critical Failures**: Missing dependencies, cluster connection issues
 
-## Dependencies
+### Recovery Strategies
+- **Continue on test failures**: Other scenarios still execute
+- **Log preservation**: All failure details saved to log files
+- **Status tracking**: Each scenario tracked independently
+- **Cleanup handling**: Resources cleaned between scenarios (unless skipped)
 
-The script requires the following repositories:
-- OpenDataHub Tests: https://github.com/opendatahub-io/opendatahub-tests.git
+### Exit Codes
+- **0**: All scenarios passed successfully
+- **1**: One or more scenarios failed or critical error occurred
+
+## Dependencies and Test Repository
+
+### External Dependencies
+The tool automatically manages the OpenDataHub test repository:
+- **Repository**: https://github.com/opendatahub-io/opendatahub-tests.git
+- **Location**: `/tmp/rhoshift-logs/opendatahub-tests`
+- **Management**: Automatically cloned on first run, updated on subsequent runs
+
+### Test Configuration
+Tests are executed with the following configuration:
+- **Test type**: `--pre-upgrade` or `--post-upgrade`
+- **Deployment modes**: Matches the selected scenario
+- **Distribution**: `downstream` (for RHOAI)
+- **Dependent operators**: Automatically configured based on scenario
 
 ## Troubleshooting
 
-Common issues and solutions:
+### Common Issues and Solutions
 
-1. **AWS Credentials Missing**
-   - Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables
-   - Or provide them via command line arguments
+#### AWS Credentials Missing
+```bash
+# Set environment variables
+export AWS_ACCESS_KEY_ID="your-access-key"
+export AWS_SECRET_ACCESS_KEY="your-secret-key"
+```
 
-2. **Namespace Conflicts**
-   - Use the cleanup option to remove existing resources
-   - Or manually delete conflicting resources
+#### Cluster Connection Issues
+```bash
+# Verify cluster connection
+oc whoami
+oc get nodes
+```
 
-3. **Test Failures**
-   - Check the logs in the `logs` directory
-   - Verify all dependencies are installed
-   - Ensure you have proper cluster permissions
+#### Namespace Conflicts
+```bash
+# Manual cleanup if needed
+rhoshift --cleanup
+# Or use skip-cleanup to preserve state
+run-upgrade-matrix --skip-cleanup ...
+```
 
-## Contributing
+#### Test Failures
+- Check detailed logs in `/tmp/rhoshift-logs/`
+- Verify cluster has sufficient resources
+- Ensure proper RBAC permissions
+- Check network connectivity for image pulls
 
-To contribute to this script:
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
+#### Script Not Found (Python CLI)
+If `run-upgrade-matrix` command is not found:
+```bash
+# Verify installation
+pip show rhoshift
+# Or use direct script
+./scripts/run_upgrade_matrix.sh [args]
+```
 
-## Test Failure Handling
+### Debugging Tips
+1. **Use skip-cleanup**: `--skip-cleanup` to preserve state between runs
+2. **Check logs**: Start with the main upgrade matrix log file
+3. **Single scenario**: Test one scenario at a time with `-s`
+4. **Extended wait**: Increase wait time with `-w` for slower clusters
+5. **Manual verification**: Check pod status manually with `oc get pods -n redhat-ods-applications`
 
-The script handles test failures in several ways:
+## Development and Contributing
 
-1. **Command Execution Failures**
-   - If a command fails, the script will:
-     - Display a red "[FAILED]" message with the exit status
-     - Continue with the next step
-     - Record the failure in the test results
+### Running in Development
+```bash
+# From project root
+./scripts/run_upgrade_matrix.sh [args]
 
-2. **Test Phase Failures**
-   - For each test phase (pre-upgrade and post-upgrade):
-     - Test results are parsed from the log file
-     - Failures are recorded in the test status arrays
-     - The script continues to the next phase
-     - Detailed results are stored in log files
+# Or via Python module
+python -m rhoshift.rhoai_upgrade_matrix.cli [args]
+```
 
-3. **Scenario Status Tracking**
-   - Each scenario's status is tracked separately:
-     - Pre-upgrade status
-     - Post-upgrade status
-     - Overall scenario status
-   - A scenario is marked as failed if:
-     - Pre-upgrade tests fail
-     - Post-upgrade tests fail
-     - No test results are found
+### Adding New Scenarios
+To add new scenarios, modify the `scenarios` array in `scripts/run_upgrade_matrix.sh`:
+```bash
+declare -A scenarios=(
+    ["new-scenario"]="--new-operator --other-flags"
+)
+```
 
-4. **Final Results**
-   - At the end of execution, the script:
-     - Displays a summary of all scenarios
-     - Shows status for each phase
-     - Indicates overall success/failure
-     - Returns appropriate exit code (0 for success, 1 for failure)
+### Test Integration
+The tool integrates with:
+- **rhoshift CLI**: For operator installation and cleanup
+- **OpenDataHub tests**: For comprehensive test coverage
+- **uv/pytest**: For Python test execution
+- **OpenShift**: For cluster operations and verification
 
-5. **Log Files**
-   - Failed test details are preserved in log files:
-     - `logs/pre-{scenario}-{timestamp}.log`
-     - `logs/post-{scenario}-{timestamp}.log`
-   - These logs contain:
-     - Test output
-     - Error messages
-     - Stack traces
-     - Test summary
+## API Reference
 
-6. **Error Recovery**
-   - The script continues running even if some tests fail
-   - All scenarios are attempted unless a critical error occurs
-   - Results are preserved for analysis
-   - Cleanup is performed unless `--skip-cleanup` is used
+### Python CLI Entry Point
+```python
+# Located in: rhoshift.rhoai_upgrade_matrix.cli:main
+# Command: run-upgrade-matrix
+```
+
+### Shell Script Location
+```bash
+# Package resource: rhoshift/scripts/run_upgrade_matrix.sh
+# Development: scripts/run_upgrade_matrix.sh
+```
+
+This documentation reflects the current implementation as of the latest version. For the most up-to-date information, refer to the help output:
+```bash
+run-upgrade-matrix --help
+```
 

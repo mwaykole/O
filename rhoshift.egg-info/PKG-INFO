@@ -1,0 +1,542 @@
+Metadata-Version: 2.4
+Name: rhoshift
+Version: 0.1.5.1
+Summary: RHOAI tool kit for managing and upgrading RHOAI
+Author: Milind Waykole
+License:                                  Apache License
+                                   Version 2.0, January 2004
+                                http://www.apache.org/licenses/
+        
+           TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+        
+           1. Definitions.
+        
+              "License" shall mean the terms and conditions for use, reproduction,
+              and distribution as defined by Sections 1 through 9 of this document.
+        
+              "Licensor" shall mean the copyright owner or entity authorized by
+              the copyright owner that is granting the License.
+        
+              "Legal Entity" shall mean the union of the acting entity and all
+              other entities that control, are controlled by, or are under common
+              control with that entity. For the purposes of this definition,
+              "control" means (i) the power, direct or indirect, to cause the
+              direction or management of such entity, whether by contract or
+              otherwise, or (ii) ownership of fifty percent (50%) or more of the
+              outstanding shares, or (iii) beneficial ownership of such entity.
+        
+              "You" (or "Your") shall mean an individual or Legal Entity
+              exercising permissions granted by this License.
+        
+              "Source" form shall mean the preferred form for making modifications,
+              including but not limited to software source code, documentation
+              source, and configuration files.
+        
+              "Object" form shall mean any form resulting from mechanical
+              transformation or translation of a Source form, including but
+              not limited to compiled object code, generated documentation,
+              and conversions to other media types.
+        
+              "Work" shall mean the work of authorship, whether in Source or
+              Object form, made available under the License, as indicated by a
+              copyright notice that is included in or attached to the work
+              (an example is provided in the Appendix below).
+        
+              "Derivative Works" shall mean any work, whether in Source or Object
+              form, that is based on (or derived from) the Work and for which the
+              editorial revisions, annotations, elaborations, or other modifications
+              represent, as a whole, an original work of authorship. For the purposes
+              of this License, Derivative Works shall not include works that remain
+              separable from, or merely link (or bind by name) to the interfaces of,
+              the Work and Derivative Works thereof.
+        
+              "Contribution" shall mean any work of authorship, including
+              the original version of the Work and any modifications or additions
+              to that Work or Derivative Works thereof, that is intentionally
+              submitted to Licensor for inclusion in the Work by the copyright owner
+              or by an individual or Legal Entity authorized to submit on behalf of
+              the copyright owner. For the purposes of this definition, "submitted"
+              means any form of electronic, verbal, or written communication sent
+              to the Licensor or its representatives, including but not limited to
+              communication on electronic mailing lists, source code control systems,
+              and issue tracking systems that are managed by, or on behalf of, the
+              Licensor for the purpose of discussing and improving the Work, but
+              excluding communication that is conspicuously marked or otherwise
+              designated in writing by the copyright owner as "Not a Contribution."
+        
+              "Contributor" shall mean Licensor and any individual or Legal Entity
+              on behalf of whom a Contribution has been received by Licensor and
+              subsequently incorporated within the Work.
+        
+           2. Grant of Copyright License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              copyright license to reproduce, prepare Derivative Works of,
+              publicly display, publicly perform, sublicense, and distribute the
+              Work and such Derivative Works in Source or Object form.
+        
+           3. Grant of Patent License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              (except as stated in this section) patent license to make, have made,
+              use, offer to sell, sell, import, and otherwise transfer the Work,
+              where such license applies only to those patent claims licensable
+              by such Contributor that are necessarily infringed by their
+              Contribution(s) alone or by combination of their Contribution(s)
+              with the Work to which such Contribution(s) was submitted. If You
+              institute patent litigation against any entity (including a
+              cross-claim or counterclaim in a lawsuit) alleging that the Work
+              or a Contribution incorporated within the Work constitutes direct
+              or contributory patent infringement, then any patent licenses
+              granted to You under this License for that Work shall terminate
+              as of the date such litigation is filed.
+        
+           4. Redistribution. You may reproduce and distribute copies of the
+              Work or Derivative Works thereof in any medium, with or without
+              modifications, and in Source or Object form, provided that You
+              meet the following conditions:
+        
+              (a) You must give any other recipients of the Work or
+                  Derivative Works a copy of this License; and
+        
+              (b) You must cause any modified files to carry prominent notices
+                  stating that You changed the files; and
+        
+              (c) You must retain, in the Source form of any Derivative Works
+                  that You distribute, all copyright, patent, trademark, and
+                  attribution notices from the Source form of the Work,
+                  excluding those notices that do not pertain to any part of
+                  the Derivative Works; and
+        
+              (d) If the Work includes a "NOTICE" text file as part of its
+                  distribution, then any Derivative Works that You distribute must
+                  include a readable copy of the attribution notices contained
+                  within such NOTICE file, excluding those notices that do not
+                  pertain to any part of the Derivative Works, in at least one
+                  of the following places: within a NOTICE text file distributed
+                  as part of the Derivative Works; within the Source form or
+                  documentation, if provided along with the Derivative Works; or,
+                  within a display generated by the Derivative Works, if and
+                  wherever such third-party notices normally appear. The contents
+                  of the NOTICE file are for informational purposes only and
+                  do not modify the License. You may add Your own attribution
+                  notices within Derivative Works that You distribute, alongside
+                  or as an addendum to the NOTICE text from the Work, provided
+                  that such additional attribution notices cannot be construed
+                  as modifying the License.
+        
+              You may add Your own copyright statement to Your modifications and
+              may provide additional or different license terms and conditions
+              for use, reproduction, or distribution of Your modifications, or
+              for any such Derivative Works as a whole, provided Your use,
+              reproduction, and distribution of the Work otherwise complies with
+              the conditions stated in this License.
+        
+           5. Submission of Contributions. Unless You explicitly state otherwise,
+              any Contribution intentionally submitted for inclusion in the Work
+              by You to the Licensor shall be under the terms and conditions of
+              this License, without any additional terms or conditions.
+              Notwithstanding the above, nothing herein shall supersede or modify
+              the terms of any separate license agreement you may have executed
+              with Licensor regarding such Contributions.
+        
+           6. Trademarks. This License does not grant permission to use the trade
+              names, trademarks, service marks, or product names of the Licensor,
+              except as required for reasonable and customary use in describing the
+              origin of the Work and reproducing the content of the NOTICE file.
+        
+           7. Disclaimer of Warranty. Unless required by applicable law or
+              agreed to in writing, Licensor provides the Work (and each
+              Contributor provides its Contributions) on an "AS IS" BASIS,
+              WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+              implied, including, without limitation, any warranties or conditions
+              of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+              PARTICULAR PURPOSE. You are solely responsible for determining the
+              appropriateness of using or redistributing the Work and assume any
+              risks associated with Your exercise of permissions under this License.
+        
+           8. Limitation of Liability. In no event and under no legal theory,
+              whether in tort (including negligence), contract, or otherwise,
+              unless required by applicable law (such as deliberate and grossly
+              negligent acts) or agreed to in writing, shall any Contributor be
+              liable to You for damages, including any direct, indirect, special,
+              incidental, or consequential damages of any character arising as a
+              result of this License or out of the use or inability to use the
+              Work (including but not limited to damages for loss of goodwill,
+              work stoppage, computer failure or malfunction, or any and all
+              other commercial damages or losses), even if such Contributor
+              has been advised of the possibility of such damages.
+        
+           9. Accepting Warranty or Additional Liability. While redistributing
+              the Work or Derivative Works thereof, You may choose to offer,
+              and charge a fee for, acceptance of support, warranty, indemnity,
+              or other liability obligations and/or rights consistent with this
+              License. However, in accepting such obligations, You may act only
+              on Your own behalf and on Your sole responsibility, not on behalf
+              of any other Contributor, and only if You agree to indemnify,
+              defend, and hold each Contributor harmless for any liability
+              incurred by, or claims asserted against, such Contributor by reason
+              of your accepting any such warranty or additional liability.
+        
+           END OF TERMS AND CONDITIONS
+        
+           APPENDIX: How to apply the Apache License to your work.
+        
+              To apply the Apache License to your work, attach the following
+              boilerplate notice, with the fields enclosed by brackets "[]"
+              replaced with your own identifying information. (Don't include
+              the brackets!)  The text should be enclosed in the appropriate
+              comment syntax for the file format. We also recommend that a
+              file or class name and description of purpose be included on the
+              same "printed page" as the copyright notice for easier
+              identification within third-party archives.
+        
+           Copyright [yyyy] [name of copyright owner]
+        
+           Licensed under the Apache License, Version 2.0 (the "License");
+           you may not use this file except in compliance with the License.
+           You may obtain a copy of the License at
+        
+               http://www.apache.org/licenses/LICENSE-2.0
+        
+           Unless required by applicable law or agreed to in writing, software
+           distributed under the License is distributed on an "AS IS" BASIS,
+           WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+           See the License for the specific language governing permissions and
+           limitations under the License.
+        
+Project-URL: Homepage, https://github.com/mwaykole/O
+Project-URL: Bug Tracker, https://github.com/mwaykole/O/issues
+Keywords: rhoai,openshift,upgrade,toolkit,red hat
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: boto3<1.39.0,>=1.26.0
+Requires-Dist: botocore<1.39.0,>=1.29.0
+Requires-Dist: kubernetes<34.0.0,>=26.1.0
+Requires-Dist: openshift-client<3.0.0,>=1.0.2
+Requires-Dist: python-dotenv<2.0.0,>=1.0.0
+Requires-Dist: requests<3.0.0,>=2.31.0
+Requires-Dist: urllib3<3.0.0,>=1.26.0
+Requires-Dist: colorlog<7.0.0,>=6.7.0
+Requires-Dist: pyfiglet<2.0.0,>=0.8.post1
+Requires-Dist: setuptools<76.0.0,>=61.0
+Requires-Dist: typing-extensions<5.0.0,>=4.7.0
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Provides-Extra: dev
+Requires-Dist: ruff; extra == "dev"
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: build; extra == "dev"
+Dynamic: license-file
+
+# RHOAI Tool Kit
+
+![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)
+![OpenShift Compatible](https://img.shields.io/badge/OpenShift-4.x-lightgrey.svg)
+
+A comprehensive toolkit for managing and upgrading Red Hat OpenShift AI (RHOAI) installations with parallel installation support.
+
+## 📋 Table of Contents
+- [Features](#-features)
+- [Project Structure](#-project-structure)
+- [Installation](#-installation)
+- [Usage](#-usage)
+- [Logging](#-logging)
+- [Configuration](#-configuration)
+- [Development](#-development)
+- [Troubleshooting](#-troubleshooting)
+- [Contributing](#-contributing)
+
+## ✨ Features
+- Install single or multiple OpenShift operators
+- Parallel installation for faster deployments
+- Configurable timeouts and retries
+- Comprehensive logging system
+- Supports:
+  - Serverless Operator
+  - Service Mesh Operator
+  - Authorino Operator
+  - cert-manager Operator (Kueue dependency)
+  - RHOAI Operator
+  - Kueue Operator
+  - KEDA (Custom Metrics Autoscaler) Operator
+- **Automatic Dependency Resolution**: Installs required operators in correct order
+- **Smart Validation**: Pre-installation compatibility and conflict detection
+
+## 📁 Project Structure
+
+```
+rhoshift/
+├── rhoshift/              # Main package directory
+│   ├── __init__.py
+│   ├── main.py           # CLI entry point
+│   ├── cli/              # Command-line interface
+│   │   ├── __init__.py
+│   │   ├── args.py      # Argument parsing
+│   │   └── commands.py  # Command implementations
+│   ├── logger/          # Logging utilities
+│   │   ├── __init__.py
+│   │   └── logger.py    # Logging configuration
+│   └── utils/           # Core utilities
+│       ├── __init__.py
+│       ├── constants.py # Constants and configurations
+│       ├── operator.py  # Operator management
+│       └── utils.py     # Utility functions
+├── run_upgrade_matrix.sh  # Upgrade matrix execution script
+├── upgrade_matrix_usage.md # Upgrade matrix documentation
+├── pyproject.toml        # Project dependencies and configuration
+└── README.md            # This document
+```
+
+## 📋 Components
+
+### Core Components
+- **CLI**: Command-line interface for operator management
+- **Logger**: Logging configuration and utilities (logs to `/tmp/rhoshift.log`)
+- **Utils**: Core utilities and operator management logic
+
+### RHOAI Components
+- **RHOAI Upgrade Matrix**: Utilities for testing RHOAI upgrades
+- **Upgrade Matrix Scripts**: Execution and documentation for upgrade testing
+
+### Maintenance Scripts
+- **Cleanup Scripts**: Utilities for cleaning up operator installations
+- **Worker Node Scripts**: Utilities for managing worker node configurations
+
+## 🚀 Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/mwaykole/O.git
+cd O
+```
+
+2. Install dependencies:
+```bash
+pip install -e .
+```
+
+3. Verify installation:
+```bash
+rhoshift --help
+```
+
+### 🔧 New CLI Options
+
+```bash
+rhoshift --help
+usage: rhoshift [-h] [--serverless] [--servicemesh] [--authorino] [--cert-manager] 
+                [--rhoai] [--kueue] [--keda] [--all] [--cleanup] [--deploy-rhoai-resources]
+                [--oc-binary OC_BINARY] [--retries RETRIES] [--retry-delay RETRY_DELAY]
+                [--timeout TIMEOUT] [--rhoai-channel RHOAI_CHANNEL] [--raw RAW]
+                [--rhoai-image RHOAI_IMAGE] [-v]
+
+Operator Selection:
+  --cert-manager        Install cert-manager Operator
+  --kueue              Install Kueue Operator (auto-installs cert-manager)
+  --keda               Install KEDA (Custom Metrics Autoscaler) Operator
+  [... other options ...]
+```
+
+## 💻 Usage
+
+### Basic Commands
+
+```bash
+# Install single operator
+rhoshift --serverless
+
+# Install multiple operators
+rhoshift --serverless --servicemesh
+
+# Install cert-manager operator
+rhoshift --cert-manager
+
+# Install Kueue operator (automatically installs cert-manager dependency)
+rhoshift --kueue
+
+# Install KEDA (Custom Metrics Autoscaler) operator
+rhoshift --keda
+
+# Install RHOAI with raw configuration
+rhoshift --rhoai --rhoai-channel=<channel> --rhoai-image=<image> --raw=True
+
+# Install RHOAI with Serverless configuration
+rhoshift --rhoai --rhoai-channel=<channel> --rhoai-image=<image> --raw=False --all
+
+# Install all operators (including Kueue and KEDA)
+rhoshift --all
+
+# Create DSC and DSCI with RHOAI operator installation
+rhoshift --rhoai --deploy-rhoai-resources
+
+# Clean up all operators
+rhoshift --cleanup
+```
+
+### 🔗 Operator Dependencies & Validation
+
+The tool automatically handles operator dependencies and provides smart validation:
+
+#### **Automatic Dependency Resolution**
+- **Kueue** requires **cert-manager**: Installing Kueue automatically includes cert-manager
+- Dependencies are installed in the correct order to prevent failures
+- Missing dependencies are automatically detected and added
+
+```bash
+# This command will install BOTH cert-manager AND Kueue (in correct order)
+rhoshift --kueue
+
+# You'll see output like:
+# 📦 Auto-adding dependency: cert-manager
+# Installing 2 operators in order: cert-manager → kueue
+```
+
+#### **Smart Validation**
+- **Compatibility Checking**: Warns about potential operator conflicts
+- **Namespace Validation**: Detects if operators conflict in shared namespaces
+- **Pre-Installation Validation**: Catches issues before installation starts
+
+```bash
+# Example validation warnings:
+# ⚠️  Note: Kueue and KEDA may have resource conflicts. Monitor for admission webhook issues.
+# ⚠️  Installation order will be adjusted for dependencies: cert-manager → kueue
+```
+
+#### **Supported Dependencies**
+| Primary Operator | Required Dependencies |
+|-----------------|----------------------|
+| Kueue           | cert-manager         |
+
+> **Note**: When installing Kueue individually (`--kueue`), you will see dependency warnings. For automatic dependency installation, use batch mode (`--cert-manager --kueue`) or install dependencies manually first.
+
+### Advanced Options
+
+```bash
+# Custom oc binary path
+rhoshift --serverless --oc-binary /path/to/oc
+
+# Custom timeout (seconds)
+rhoshift --all --timeout 900
+
+# Install queue management and auto-scaling operators together
+# (cert-manager will be automatically installed as Kueue dependency)
+rhoshift --kueue --keda
+
+# Install complete ML/AI stack with queue management
+rhoshift --rhoai --kueue --keda --rhoai-channel=stable --rhoai-image=<image>
+
+# Install only cert-manager for other uses
+rhoshift --cert-manager
+
+# Verbose output
+rhoshift --all --verbose
+```
+
+### Upgrade Matrix Testing
+
+To run the upgrade matrix tests, you can use either method:
+
+1. Using the shell script:
+```bash
+./run_upgrade_matrix.sh [options] <current_version> <current_channel> <new_version> <new_channel>
+```
+
+2. Using the Python command:
+```bash
+run-upgrade-matrix [options] <current_version> <current_channel> <new_version> <new_channel>
+```
+
+Options:
+- `-s, --scenario`: Run specific scenario(s) (serverless, rawdeployment, serverless,rawdeployment)
+- `--skip-cleanup`: Skip cleanup before each scenario
+- `--from-image`: Custom source image path
+- `--to-image`: Custom target image path
+
+Example:
+```bash
+# Using shell script
+./run_upgrade_matrix.sh -s serverless -s rawdeployment 2.10 stable 2.12 stable
+
+# Using Python command
+run-upgrade-matrix -s serverless -s rawdeployment 2.10 stable 2.12 stable
+```
+
+## 📝 Logging
+
+The toolkit uses a comprehensive logging system:
+- Logs are stored in `/tmp/rhoshift.log`
+- Console output shows INFO level and above
+- File logging captures DEBUG level and above
+- Automatic log rotation (10MB max size, 5 backup files)
+- Colored output in supported terminals
+
+To view logs:
+```bash
+tail -f /tmp/rhoshift.log
+```
+
+## 🔧 Configuration
+
+### Environment Variables
+- `LOG_FILE_LEVEL`: Set file logging level (default: DEBUG)
+- `LOG_CONSOLE_LEVEL`: Set console logging level (default: INFO)
+
+### Command Options
+- `--oc-binary`: Path to oc CLI (default: oc)
+- `--retries`: Max retry attempts (default: 3)
+- `--retry-delay`: Delay between retries in seconds (default: 10)
+- `--timeout`: Command timeout in seconds (default: 300)
+
+## 🛠️ Development
+
+### Prerequisites
+- Python 3.8 or higher
+- OpenShift CLI (oc)
+- Access to an OpenShift cluster
+
+### Running Tests
+```bash
+pytest tests/
+```
+
+## 🔍 Troubleshooting
+
+### Common Issues
+1. **Operator Installation Fails**
+   - Check cluster access: `oc whoami`
+   - Verify operator catalog: `oc get catalogsource`
+   - Check logs: `tail -f /tmp/rhoshift.log`
+
+2. **Permission Issues**
+   - Ensure you have cluster-admin privileges
+   - Check namespace permissions
+
+3. **Timeout Errors**
+   - Increase timeout: `--timeout 900`
+   - Check cluster resources
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details. 
