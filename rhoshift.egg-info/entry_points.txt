@@ -1,0 +1,3 @@
+[console_scripts]
+rhoshift = rhoshift.main:main
+run-upgrade-matrix = rhoshift.rhoai_upgrade_matrix.cli:main
