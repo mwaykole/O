@@ -25,9 +25,12 @@ A comprehensive toolkit for managing and upgrading Red Hat OpenShift AI (RHOAI) 
   - Serverless Operator
   - Service Mesh Operator
   - Authorino Operator
+  - cert-manager Operator (Kueue dependency)
   - RHOAI Operator
   - Kueue Operator
   - KEDA (Custom Metrics Autoscaler) Operator
+- **Automatic Dependency Resolution**: Installs required operators in correct order
+- **Smart Validation**: Pre-installation compatibility and conflict detection
 
 ## 📁 Project Structure
 
@@ -87,6 +90,23 @@ pip install -e .
 rhoshift --help
 ```
 
+### 🔧 New CLI Options
+
+```bash
+rhoshift --help
+usage: rhoshift [-h] [--serverless] [--servicemesh] [--authorino] [--cert-manager] 
+                [--rhoai] [--kueue] [--keda] [--all] [--cleanup] [--deploy-rhoai-resources]
+                [--oc-binary OC_BINARY] [--retries RETRIES] [--retry-delay RETRY_DELAY]
+                [--timeout TIMEOUT] [--rhoai-channel RHOAI_CHANNEL] [--raw RAW]
+                [--rhoai-image RHOAI_IMAGE] [-v]
+
+Operator Selection:
+  --cert-manager        Install cert-manager Operator
+  --kueue              Install Kueue Operator (auto-installs cert-manager)
+  --keda               Install KEDA (Custom Metrics Autoscaler) Operator
+  [... other options ...]
+```
+
 ## 💻 Usage
 
 ### Basic Commands
@@ -98,7 +118,10 @@ rhoshift --serverless
 # Install multiple operators
 rhoshift --serverless --servicemesh
 
-# Install Kueue operator
+# Install cert-manager operator
+rhoshift --cert-manager
+
+# Install Kueue operator (automatically installs cert-manager dependency)
 rhoshift --kueue
 
 # Install KEDA (Custom Metrics Autoscaler) operator
@@ -120,6 +143,42 @@ rhoshift --rhoai --deploy-rhoai-resources
 rhoshift --cleanup
 ```
 
+### 🔗 Operator Dependencies & Validation
+
+The tool automatically handles operator dependencies and provides smart validation:
+
+#### **Automatic Dependency Resolution**
+- **Kueue** requires **cert-manager**: Installing Kueue automatically includes cert-manager
+- Dependencies are installed in the correct order to prevent failures
+- Missing dependencies are automatically detected and added
+
+```bash
+# This command will install BOTH cert-manager AND Kueue (in correct order)
+rhoshift --kueue
+
+# You'll see output like:
+# 📦 Auto-adding dependency: cert-manager
+# Installing 2 operators in order: cert-manager → kueue
+```
+
+#### **Smart Validation**
+- **Compatibility Checking**: Warns about potential operator conflicts
+- **Namespace Validation**: Detects if operators conflict in shared namespaces
+- **Pre-Installation Validation**: Catches issues before installation starts
+
+```bash
+# Example validation warnings:
+# ⚠️  Note: Kueue and KEDA may have resource conflicts. Monitor for admission webhook issues.
+# ⚠️  Installation order will be adjusted for dependencies: cert-manager → kueue
+```
+
+#### **Supported Dependencies**
+| Primary Operator | Required Dependencies |
+|-----------------|----------------------|
+| Kueue           | cert-manager         |
+
+> **Note**: When installing Kueue individually (`--kueue`), you will see dependency warnings. For automatic dependency installation, use batch mode (`--cert-manager --kueue`) or install dependencies manually first.
+
 ### Advanced Options
 
 ```bash
@@ -130,10 +189,14 @@ rhoshift --serverless --oc-binary /path/to/oc
 rhoshift --all --timeout 900
 
 # Install queue management and auto-scaling operators together
+# (cert-manager will be automatically installed as Kueue dependency)
 rhoshift --kueue --keda
 
 # Install complete ML/AI stack with queue management
 rhoshift --rhoai --kueue --keda --rhoai-channel=stable --rhoai-image=<image>
+
+# Install only cert-manager for other uses
+rhoshift --cert-manager
 
 # Verbose output
 rhoshift --all --verbose

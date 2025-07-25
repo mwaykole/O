@@ -82,6 +82,7 @@ export RHOAI_SERVERLESS_NAMESPACE="rhoai-serverless"
 export AUTHORINO_NAMESPACE="authorino-auth-provider"
 export KUEUE_NAMESPACE="openshift-kueue-operator"
 export KEDA_NAMESPACE="openshift-keda"
+export CERT_MANAGER_NAMESPACE="cert-manager-operator"
 
 # Demo namespaces
 export KSERVE_DEMO_NAMESPACE="kserve-demo"
@@ -235,6 +236,7 @@ local operators=(
         "servicemeshoperator"
         "serverless-operator"
         "openshift-pipelines-operator-rh"
+        "openshift-cert-manager-operator"
         "kueue-operator"
         "custom-metrics-autoscaler"
 )
@@ -243,14 +245,25 @@ for operator in "${operators[@]}"; do
         log_info "Deleting subscription for ${operator}"
         oc delete sub "$operator" --force --grace-period=0 -n openshift-operators  || true
         # Also check for subscriptions in operator-specific namespaces
+        oc delete sub "$operator" --force --grace-period=0 -n cert-manager-operator  || true
         oc delete sub "$operator" --force --grace-period=0 -n openshift-kueue-operator  || true
         oc delete sub "$operator" --force --grace-period=0 -n openshift-keda  || true
 
         log_info "Deleting CSV for ${operator}"
         oc delete csv -n openshift-operators $(oc get csv -n openshift-operators | grep "$operator" | awk '{print $1}')  || true
+        oc delete csv -n cert-manager-operator $(oc get csv -n cert-manager-operator | grep "$operator" | awk '{print $1}')  || true
         oc delete csv -n openshift-kueue-operator $(oc get csv -n openshift-kueue-operator | grep "$operator" | awk '{print $1}')  || true
         oc delete csv -n openshift-keda $(oc get csv -n openshift-keda | grep "$operator" | awk '{print $1}')  || true
 done
+
+# Clean up cert-manager-specific resources
+log_info "Cleaning up cert-manager resources..."
+oc delete certificates --all -A --force --grace-period=0 || true
+oc delete certificaterequests --all -A --force --grace-period=0 || true
+oc delete issuers --all -A --force --grace-period=0 || true
+oc delete clusterissuers --all -A --force --grace-period=0 || true
+oc delete challenges --all -A --force --grace-period=0 || true
+oc delete orders --all -A --force --grace-period=0 || true
 
 # Clean up Kueue-specific resources
 log_info "Cleaning up Kueue resources..."
@@ -264,8 +277,12 @@ oc delete scaledjobs --all -A --force --grace-period=0 || true
 
 # Delete InstallPlans
 log_info "Deleting InstallPlans..."
-for installplan in $(oc get installPlan -n openshift-operators | grep -E 'authorino|serverless|servicemeshoperator|opendatahub|pipeline|kueue|keda|custom-metrics-autoscaler' | awk '{print $1}'); do
+for installplan in $(oc get installPlan -n openshift-operators | grep -E 'authorino|serverless|servicemeshoperator|opendatahub|pipeline|cert-manager|kueue|keda|custom-metrics-autoscaler' | awk '{print $1}'); do
         oc delete installPlan -n openshift-operators "$installplan"  || true
+done
+
+for installplan in $(oc get installPlan -n cert-manager-operator | grep -E 'cert-manager' | awk '{print $1}'); do
+        oc delete installPlan -n cert-manager-operator "$installplan"  || true
 done
 
 for installplan in $(oc get installPlan -n openshift-kueue-operator | grep -E 'kueue' | awk '{print $1}'); do
@@ -369,6 +386,12 @@ local crds_to_delete=(
     "workloadpriorityclasses.kueue.x-k8s.io"
     "workloads.kueue.x-k8s.io"
     "lmevaljobs.trustyai.opendatahub.io"
+    "certificates.cert-manager.io"
+    "certificaterequests.cert-manager.io"
+    "challenges.acme.cert-manager.io"
+    "clusterissuers.cert-manager.io"
+    "issuers.cert-manager.io"
+    "orders.acme.cert-manager.io"
     "kueuecontrollers.keda.sh"
     "kedacontrollers.keda.sh"
     "scaledobjects.keda.sh"
@@ -382,7 +405,7 @@ local crds_to_delete=(
 log_info "Deleting CRDs by pattern...BG started"
 (
 log_info "Deleting CRDs by pattern..."
-for crd in $(oc get crd --no-headers | grep -E "kserve|knative|istio|opendatahub|serverless|authorino|kueue|keda" | awk '{print $1}'); do
+for crd in $(oc get crd --no-headers | grep -E "kserve|knative|istio|opendatahub|serverless|authorino|cert-manager|kueue|keda" | awk '{print $1}'); do
     log_info "Force-removing finalizers and deleting CRD: ${crd}"
 
     # Fire and forget style: no wait, no loop
@@ -400,7 +423,7 @@ for crd in "${crds_to_delete[@]}"; do
 done
 
 log_info "Deleting CRDs by pattern..."
-for crd in $(oc get crd --no-headers | grep -E "kserve|knative|istio|opendatahub|serverless|authorino|kueue|keda" | awk '{print $1}'); do
+for crd in $(oc get crd --no-headers | grep -E "kserve|knative|istio|opendatahub|serverless|authorino|cert-manager|kueue|keda" | awk '{print $1}'); do
         log_info "Deleting CRD: ${crd}"
         oc patch crd "$crd" -p '{"metadata":{"finalizers":[]}}' --type=merge || true
         oc delete crd "$crd" --ignore-not-found --force --grace-period=0  --timeout=5s|| true
@@ -430,6 +453,7 @@ local namespaces_to_delete=(
         "$SERVERLESS_NAMESPACE"
         "$RHOAI_SERVERLESS_NAMESPACE"
         "$AUTHORINO_NAMESPACE"
+        "$CERT_MANAGER_NAMESPACE"
         "$KUEUE_NAMESPACE"
         "$KEDA_NAMESPACE"
 )
@@ -537,8 +561,8 @@ log_success "RHOAI/Kserve forceful uninstallation completed!"
 # Final recommendations
 echo -e "\n${YELLOW}Recommendations:${NC}"
 echo "1. Verify cleanup with:"
-echo "   oc get crd | grep -E 'opendatahub|kubeflow|kserve|ray|kueue|knative|istio|keda'"
-echo "   oc get ns | grep -E 'redhat-ods|opendatahub|rhods|istio|knative|serverless|kueue|keda'"
+echo "   oc get crd | grep -E 'opendatahub|kubeflow|kserve|ray|cert-manager|kueue|knative|istio|keda'"
+echo "   oc get ns | grep -E 'redhat-ods|opendatahub|rhods|istio|knative|serverless|cert-manager|kueue|keda'"
 echo "2. You may need to restart the cluster if some resources remain in terminating state"
 }
 

@@ -31,42 +31,54 @@ class OpenShiftOperatorInstaller:
     operators with proper error handling and status verification.
     """
 
-    OPERATOR_CONFIGS = {
-        'serverless-operator': {
-            'manifest': OpenShiftOperatorInstallManifest.SERVERLESS_MANIFEST,
-            'namespace': 'openshift-serverless',
-            'display_name': 'Serverless Operator'
-        },
-        'servicemeshoperator': {
-            'manifest': OpenShiftOperatorInstallManifest.SERVICEMESH_MANIFEST,
-            'namespace': 'openshift-operators',
-            'display_name': 'Service Mesh Operator'
-        },
-        'authorino-operator': {
-            'manifest': OpenShiftOperatorInstallManifest.AUTHORINO_MANIFEST,
-            'namespace': 'openshift-operators',
-            'display_name': 'Authorino Operator'
-        },
-        'kueue-operator': {
-            'manifest': OpenShiftOperatorInstallManifest.KUEUE_MANIFEST,
-            'namespace': 'openshift-kueue-operator',
-            'display_name': 'Kueue Operator'
-        },
-        'custom-metrics-autoscaler': {
-            'manifest': OpenShiftOperatorInstallManifest.KEDA_MANIFEST,
-            'namespace': 'openshift-keda',
-            'display_name': 'KEDA (Custom Metrics Autoscaler) Operator'
-        }
-    }
+    # Use optimized operator configurations
+    @classmethod
+    def get_operator_configs(cls, oc_binary: str = "oc"):
+        """Get operator configurations from optimized constants."""
+        configs = {}
+        manifest_generator = OpenShiftOperatorInstallManifest()
+        
+        for op_key in OpenShiftOperatorInstallManifest.list_operators():
+            op_config = OpenShiftOperatorInstallManifest.get_operator_config(op_key)
+            configs[op_key] = {
+                'manifest': manifest_generator.generate_operator_manifest(op_key, oc_binary),
+                'namespace': op_config.namespace,
+                'display_name': op_config.display_name,
+                'config': op_config  # Store the full config for advanced features
+            }
+        return configs
+
+    @property
+    def OPERATOR_CONFIGS(self):
+        """Backward compatibility property."""
+        return self.get_operator_configs()
 
     @classmethod
     def install_operator(cls, operator_name: str, **kwargs) -> Tuple[int, str, str]:
-        """Install an OpenShift operator by name."""
-        if operator_name not in cls.OPERATOR_CONFIGS:
-            raise ValueError(f"Unknown operator: {operator_name}")
+        """Install an OpenShift operator by name with validation."""
+        oc_binary = kwargs.get('oc_binary', 'oc')
+        
+        # Get configurations using optimized approach
+        configs = cls.get_operator_configs(oc_binary)
+        
+        if operator_name not in configs:
+            available = ', '.join(OpenShiftOperatorInstallManifest.list_operators())
+            raise ValueError(f"Unknown operator: {operator_name}. Available: {available}")
+        
+        # Add validation for single operator installation
+        warnings = OpenShiftOperatorInstallManifest.validate_operator_compatibility([operator_name])
+        for warning in warnings:
+            logger.warning(f"⚠️  {warning}")
             
-        config = cls.OPERATOR_CONFIGS[operator_name]
+        config = configs[operator_name]
         logger.info(f"Installing {config['display_name']}...")
+        
+        # Use special timeout for cert-manager as it can take longer
+        if operator_name == 'openshift-cert-manager-operator':
+            kwargs.setdefault('timeout', WaitTime.WAIT_TIME_10_MIN)  # 10 minutes for cert-manager
+            logger.info(f"Using extended timeout for cert-manager operator: {kwargs['timeout']} seconds")
+        
+        # Use the dynamically generated manifest
         return cls._install_operator(operator_name, config['manifest'], **kwargs)
 
     @classmethod
@@ -83,6 +95,11 @@ class OpenShiftOperatorInstaller:
     def install_authorino_operator(cls, **kwargs) -> Tuple[int, str, str]:
         """Install the Authorino Operator."""
         return cls.install_operator('authorino-operator', **kwargs)
+
+    @classmethod
+    def install_cert_manager_operator(cls, **kwargs) -> Tuple[int, str, str]:
+        """Install the cert-manager Operator."""
+        return cls.install_operator('openshift-cert-manager-operator', **kwargs)
 
     @classmethod
     def install_kueue_operator(cls, **kwargs) -> Tuple[int, str, str]:
@@ -205,7 +222,7 @@ spec:
             if rc != 0:
                 raise RuntimeError(f"RHOAI installation failed: {stderr}")
 
-            namespace = "opendatahub-operator" if channel == "odh-nightlies" else "redhat-ods-operator"
+            namespace = "opendatahub-operators" if channel == "odh-nightlies" else "redhat-ods-operator"
             operator_name = "opendatahub-operator.1.18.0" if channel == "odh-nightlies" else "rhods-operator"
             # namespace = "redhat-ods-operator"
             # Wait for the operator to be ready
@@ -279,21 +296,87 @@ spec:
     ) -> Tuple[bool, Optional[str]]:
         """Check both CSV and Deployment status for an operator."""
         try:
-            # Check CSV status
-            csv_cmd = f"{oc_binary} get csv -n default | grep '{operator_name}' | awk '{{print $NF}}'"
-            rc, stdout, stderr = run_command(csv_cmd, log_output=True)
-
+            # Check for OLM conflicts first (but skip for shared namespaces)
+            if namespace not in ['openshift-operators']:  # Skip conflict check for shared namespaces
+                og_cmd = f"{oc_binary} get operatorgroup -n {namespace}"
+                rc, stdout, stderr = run_command(og_cmd, log_output=False)
+                if rc == 0:
+                    lines = stdout.strip().split('\n')
+                    if len(lines) > 2:  # More than header + 1 operator group
+                        return False, f"Multiple OperatorGroups detected in namespace {namespace}. This prevents CSV creation."
+            
+            # Check subscription status for issues
+            sub_cmd = f"{oc_binary} get subscription -n {namespace} -o json"
+            rc, stdout, stderr = run_command(sub_cmd, log_output=False)
+            if rc == 0:
+                import json
+                subs = json.loads(stdout)
+                for sub in subs.get('items', []):
+                    conditions = sub.get('status', {}).get('conditions', [])
+                    for condition in conditions:
+                        if condition.get('status') == 'True' and 'Error' in condition.get('type', ''):
+                            return False, f"Subscription error: {condition.get('message', 'Unknown error')}"
+            
+            # Check CSV status in the correct namespace using improved logic
+            from ..constants import OpenShiftOperatorInstallManifest
+            operator_config = None
+            try:
+                operator_config = OpenShiftOperatorInstallManifest.get_operator_config(operator_name)
+            except ValueError:
+                # Fallback for non-configured operators like RHOAI
+                pass
+                
+            # Use csv_name_prefix if available, otherwise use operator name
+            if operator_config and operator_config.csv_name_prefix:
+                csv_search_pattern = operator_config.csv_name_prefix
+            else:
+                csv_search_pattern = operator_name
+            
+            # Check for CSV with better pattern matching
+            csv_cmd = f"{oc_binary} get csv -n {namespace} -o json"
+            rc, stdout, stderr = run_command(csv_cmd, log_output=False)
+            
             if rc != 0:
-                return False, f"Error running oc get csv: {stderr}"
-            if stdout.strip() != "Succeeded":
-                return False, "CSV not in succeeded phase"
+                return False, f"Error getting CSVs in {namespace}: {stderr}"
+            
+            import json
+            try:
+                csvs = json.loads(stdout)
+                matching_csvs = []
+                
+                for csv in csvs.get('items', []):
+                    csv_name = csv.get('metadata', {}).get('name', '')
+                    # Match CSV names that start with our pattern
+                    if csv_name.startswith(csv_search_pattern):
+                        phase = csv.get('status', {}).get('phase', '')
+                        matching_csvs.append((csv_name, phase))
+                
+                if not matching_csvs:
+                    return False, f"No CSV found matching pattern '{csv_search_pattern}' in namespace {namespace}"
+                
+                # Check if any matching CSV is in Succeeded state
+                succeeded_csvs = [csv for csv, phase in matching_csvs if phase == "Succeeded"]
+                if succeeded_csvs:
+                    logger.debug(f"Found succeeded CSV: {succeeded_csvs[0]}")
+                    return True, f"Operator fully installed and ready (CSV: {succeeded_csvs[0]})"
+                
+                # Report status of non-succeeded CSVs
+                failed_csvs = [(csv, phase) for csv, phase in matching_csvs if phase in ["Failed", "InstallReady"]]
+                if failed_csvs:
+                    return False, f"CSV in failed state: {failed_csvs[0][0]} - {failed_csvs[0][1]}"
+                
+                # Report other states
+                pending_csvs = [(csv, phase) for csv, phase in matching_csvs if phase not in ["Succeeded", "Failed"]]
+                if pending_csvs:
+                    return False, f"CSV pending: {pending_csvs[0][0]} - {pending_csvs[0][1]}"
+                    
+            except json.JSONDecodeError as e:
+                return False, f"Invalid JSON from CSV command: {e}"
 
-            return True, "Operator fully installed and ready"
+            return False, "CSV not in succeeded phase"
 
-        except json.JSONDecodeError:
-            return False, "Invalid JSON from oc command"
         except Exception as e:
-            return False, str(e)
+            return False, f"Unexpected error checking operator status: {str(e)}"
 
     @classmethod
     def wait_for_operator(
@@ -467,7 +550,6 @@ spec:
         if channel == "odh-nightlies":
             dsci_params["applications_namespace"] = "opendatahub"
             dsci_params["monitoring_namespace"] = "opendatahub"
-
         dsci = constants.get_dsci_manifest(
             kserve_raw=kserve_raw,
             **dsci_params
@@ -535,7 +617,7 @@ spec:
     @classmethod
     def install_all_and_wait(cls, oc_binary="oc", **kwargs) -> Dict[str, Dict[str, str]]:
         """
-        Installs and monitors all supported operators in parallel.
+        Installs and monitors all supported operators in parallel with validation.
 
         Args:
             oc_binary: Path to OpenShift CLI binary
@@ -544,14 +626,30 @@ spec:
         Returns:
             Dict containing installation results for each operator
         """
-        install_methods = [
-            ("serverless-operator", "openshift-serverless", cls.install_serverless_operator),
-            ("servicemeshoperator", "openshift-operators", cls.install_service_mesh_operator),
-            ("authorino-operator", "openshift-operators", cls.install_authorino_operator),
-            ("kueue-operator", "openshift-kueue-operator", cls.install_kueue_operator),
-            ("custom-metrics-autoscaler", "openshift-keda", cls.install_keda_operator),
-            ("rhods-operator", "redhat-ods-operator", cls.install_rhoai_operator),
-        ]
+        # Get all available operators from optimized config
+        available_operators = OpenShiftOperatorInstallManifest.list_operators()
+        
+        # Add RHOAI operator separately as it uses different installation method
+        install_methods = []
+        
+        # Add standard operators
+        for op_key in available_operators:
+            op_config = OpenShiftOperatorInstallManifest.get_operator_config(op_key)
+            method_name = f"install_{op_key.replace('-', '_')}"
+            if hasattr(cls, method_name):
+                install_methods.append((op_key, op_config.namespace, getattr(cls, method_name)))
+        
+        # Add RHOAI operator (special case)
+        install_methods.append(("rhods-operator", "redhat-ods-operator", cls.install_rhoai_operator))
+
+        # Validate compatibility for all operators
+        operator_names = [name for name, _, _ in install_methods]
+        warnings = OpenShiftOperatorInstallManifest.validate_operator_compatibility(operator_names)
+        
+        if warnings:
+            logger.warning("⚠️  Compatibility warnings for batch installation:")
+            for warning in warnings:
+                logger.warning(f"   - {warning}")
 
         logger.info("🚀 Applying manifests for all operators in parallel...")
 

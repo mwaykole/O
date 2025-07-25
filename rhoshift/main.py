@@ -21,6 +21,13 @@ def main() -> Optional[int]:
 
     try:
         args = parse_args()
+        
+        # Handle summary option first
+        if args.summary:
+            from rhoshift.utils.constants import OpenShiftOperatorInstallManifest
+            print(OpenShiftOperatorInstallManifest.get_installation_summary())
+            return 0
+            
         if args.cleanup:
             cleanup()
 
@@ -40,8 +47,9 @@ def main() -> Optional[int]:
             'serverless': args.serverless or args.all,
             'servicemesh': args.servicemesh or args.all,
             'authorino': args.authorino or args.all,
-            # 'kueue': args.kueue or args.all,
-            # 'keda': args.keda or args.all,
+            'cert-manager': getattr(args, 'cert_manager', False) or args.all,
+            'kueue': args.kueue or args.all,
+            'keda': args.keda or args.all,
             'rhoai': args.rhoai,
         }
 
