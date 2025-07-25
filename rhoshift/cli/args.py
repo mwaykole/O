@@ -3,30 +3,35 @@ import sys
 from typing import Dict, Any
 
 
+def str_to_bool(v):
+    """Convert string to boolean value."""
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+
+
 def parse_args() -> argparse.Namespace:
     """Parse and return command line arguments"""
     parser = argparse.ArgumentParser(description="OpenShift Operator Installation Tool")
 
-    # Operator selection
-    operators = parser.add_argument_group("Operator Selection")
-    operators.add_argument("--serverless", action="store_true",
-                           help="Install Serverless Operator")
-    operators.add_argument("--servicemesh", action="store_true",
-                           help="Install Service Mesh Operator")
-    operators.add_argument("--authorino", action="store_true",
-                           help="Install Authorino Operator")
-    operators.add_argument("--rhoai", action="store_true",
-                           help="Install RHOArawI Operator")
-    operators.add_argument("--kueue", action="store_true",
-                           help="Install Kueue Operator")
-    operators.add_argument("--keda", action="store_true",
-                           help="Install KEDA (Custom Metrics Autoscaler) Operator")
-    operators.add_argument("--all", action="store_true",
-                           help="Install all operators")
-    operators.add_argument("--cleanup", action="store_true",
-                           help="clean up all RHOAI, serverless , servishmesh , Authorino Operator ")
-    operators.add_argument("--deploy-rhoai-resources",
-                           action="store_true", help="creates dsc and dsci")
+    # Operator Selection
+    operator_group = parser.add_argument_group('Operator Selection')
+    operator_group.add_argument('--serverless', action='store_true', help='Install Serverless Operator')
+    operator_group.add_argument('--servicemesh', action='store_true', help='Install Service Mesh Operator')
+    operator_group.add_argument('--authorino', action='store_true', help='Install Authorino Operator')
+    operator_group.add_argument('--cert-manager', action='store_true', help='Install cert-manager Operator (latest v1.16.1)')
+    operator_group.add_argument('--rhoai', action='store_true', help='Install RHOArawI Operator')
+    operator_group.add_argument('--kueue', action='store_true', help='Install Kueue Operator (requires cert-manager)')
+    operator_group.add_argument('--keda', action='store_true', help='Install KEDA (Custom Metrics Autoscaler) Operator')
+    operator_group.add_argument('--all', action='store_true', help='Install all operators')
+    operator_group.add_argument('--cleanup', action='store_true', help='clean up all RHOAI, serverless , servishmesh , Authorino Operator')
+    operator_group.add_argument('--deploy-rhoai-resources', action='store_true', help='creates dsc and dsci')
+    operator_group.add_argument('--summary', action='store_true', help='Show detailed summary of all supported operators and their versions')
 
     # Configuration options
     config = parser.add_argument_group("Configuration")
@@ -40,7 +45,7 @@ def parse_args() -> argparse.Namespace:
                         help="Command timeout in seconds (default: 300)")
     config.add_argument("--rhoai-channel", default='stable', type=str,
                         help="rhoai channel fast OR stable")
-    config.add_argument("--raw", default=False, type=str,
+    config.add_argument("--raw", default=False, type=str_to_bool,
                         help="True if install raw else False")
     config.add_argument("--rhoai-image", required='--rhoai' in sys.argv, type=str,
                         default="quay.io/rhoai/rhoai-fbc-fragment:rhoai-2.20-nightly",
@@ -74,6 +79,7 @@ def select_operators(args: argparse.Namespace) -> Dict[str, bool]:
             'serverless': True,
             'servicemesh': True,
             'authorino': True,
+            'cert-manager': True,
             'rhoai': True,
             'kueue': True,
             'keda': True
@@ -83,6 +89,7 @@ def select_operators(args: argparse.Namespace) -> Dict[str, bool]:
         'serverless': args.serverless,
         'servicemesh': args.servicemesh,
         'authorino': args.authorino,
+        'cert-manager': getattr(args, 'cert_manager', False),  # Handle hyphen to underscore conversion
         'rhoai': args.rhoai,
         'kueue': args.kueue,
         'keda': args.keda
