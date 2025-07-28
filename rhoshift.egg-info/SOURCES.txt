@@ -19,6 +19,9 @@ rhoshift/logger/logger.py
 rhoshift/rhoai_upgrade_matrix/__init__.py
 rhoshift/rhoai_upgrade_matrix/cli.py
 rhoshift/rhoai_upgrade_matrix/run_matrix.py
+rhoshift/scripts/run_upgrade_matrix.sh
+rhoshift/scripts/cleanup/cleanup_all.sh
+rhoshift/scripts/cleanup/remove_image_from_worker_node.sh
 rhoshift/utils/__init__.py
 rhoshift/utils/constants.py
 rhoshift/utils/utils.py

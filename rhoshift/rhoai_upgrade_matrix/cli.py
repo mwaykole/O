@@ -2,7 +2,10 @@
 import sys
 import os
 import logging
-import pkg_resources
+try:
+    from importlib.resources import files
+except ImportError:
+    from importlib_resources import files
 from rhoshift.utils.utils import run_command
 
 # Configure logging
@@ -12,16 +15,30 @@ logger = logging.getLogger(__name__)
 def find_script():
     """Locate the run_upgrade_matrix.sh script using multiple methods."""
     try:
-        # 1. First try using package resources (works for installed packages)
-        script_path = pkg_resources.resource_filename('rhoshift', 'scripts/run_upgrade_matrix.sh')
-        if os.path.exists(script_path):
-            return script_path
+        # 1. First try using importlib.resources (modern approach)
+        try:
+            import rhoshift
+            script_files = files(rhoshift) / "scripts" / "run_upgrade_matrix.sh"
+            if script_files.is_file():
+                # For importlib.resources, we need to extract to a temporary location
+                import tempfile
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.sh', delete=False) as temp_file:
+                    temp_file.write(script_files.read_text())
+                    os.chmod(temp_file.name, 0o755)
+                    return temp_file.name
+        except Exception as e:
+            logger.debug(f"importlib.resources approach failed: {str(e)}")
 
         # 2. Fallback for development environment
         base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         script_path = os.path.join(base_path, 'scripts', 'run_upgrade_matrix.sh')
         if os.path.exists(script_path):
             return script_path
+
+        # 3. Check in rhoshift package directory (for editable installs)
+        rhoshift_script_path = os.path.join(base_path, 'rhoshift', 'scripts', 'run_upgrade_matrix.sh')
+        if os.path.exists(rhoshift_script_path):
+            return rhoshift_script_path
 
     except Exception as e:
         logger.debug(f"Error while locating script: {str(e)}")
