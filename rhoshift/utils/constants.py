@@ -80,7 +80,6 @@ class OpenShiftOperatorInstallManifest:
             namespace='openshift-kueue-operator',
             channel='stable-v1.0',
             install_mode=InstallMode.ALL_NAMESPACES,
-            # starting_csv='kueue-operator.v1.0.0'  # Optional for specific version
             additional_resources=[],  # Will be populated with dependencies
             post_install_hook='verify_cert_manager_dependency'
         ),
@@ -93,12 +92,14 @@ class OpenShiftOperatorInstallManifest:
             csv_name_prefix='cert-manager-operator',  # CSV uses different name prefix
             starting_csv=None  # Let it use the latest version automatically
         ),
-        'custom-metrics-autoscaler': OperatorConfig(
-            name='custom-metrics-autoscaler',
+        'openshift-custom-metrics-autoscaler-operator': OperatorConfig(
+            name='openshift-custom-metrics-autoscaler-operator',
             display_name='KEDA (Custom Metrics Autoscaler)',
             namespace='openshift-keda',
             channel='stable',
-            install_mode=InstallMode.ALL_NAMESPACES,  # Fixed: was OWN_NAMESPACE
+            catalog_source=CatalogSource.REDHAT_OPERATORS,
+            install_mode=InstallMode.ALL_NAMESPACES,
+            csv_name_prefix='custom-metrics-autoscaler',  # CSV uses shorter name prefix
             post_install_hook='create_keda_controller'
         ),
     }
@@ -180,20 +181,23 @@ class OpenShiftOperatorInstallManifest:
     @classmethod
     def generate_subscription(cls, config: OperatorConfig) -> Dict[str, Any]:
         """Generate Subscription manifest."""
+        # Use csv_name_prefix for subscription name if available, otherwise use config.name
+        subscription_name = config.csv_name_prefix if config.csv_name_prefix else config.name
+        
         manifest = {
             'apiVersion': 'operators.coreos.com/v1alpha1',
             'kind': 'Subscription',
             'metadata': {
-                'name': config.name,
+                'name': subscription_name,
                 'namespace': config.namespace,
                 'labels': {
-                    f'operators.coreos.com/{config.name}.{config.namespace}': ''
+                    f'operators.coreos.com/{subscription_name}.{config.namespace}': ''
                 }
             },
             'spec': {
                 'channel': config.channel,
                 'installPlanApproval': config.install_plan_approval,
-                'name': config.name,
+                'name': config.name,  # This is the package name in the catalog
                 'source': config.catalog_source.value,
                 'sourceNamespace': cls.MARKETPLACE_NAMESPACE
             }
@@ -342,7 +346,7 @@ class OpenShiftOperatorInstallManifest:
             namespaces[config.namespace] = op_key
             
         # Check for specific operator conflicts
-        if 'kueue-operator' in operators and 'custom-metrics-autoscaler' in operators:
+        if 'kueue-operator' in operators and 'openshift-custom-metrics-autoscaler-operator' in operators:
             warnings.append(
                 "Note: Kueue and KEDA may have resource conflicts. "
                 "Monitor for admission webhook issues."
@@ -394,10 +398,10 @@ class OpenShiftOperatorInstallManifest:
                 'expected_version': 'latest',
                 'description': 'Red Hat build of Kueue - latest v1.0 stable'
             },
-            'custom-metrics-autoscaler': {
+            'openshift-custom-metrics-autoscaler-operator': {
                 'channel': 'stable',
                 'expected_version': 'latest',
-                'description': 'KEDA - latest stable version'
+                'description': 'KEDA - latest stable version (from redhat-operators)'
             },
             'servicemeshoperator': {
                 'channel': 'stable',
@@ -483,7 +487,7 @@ class OpenShiftOperatorInstallManifest:
         
     @property
     def KEDA_MANIFEST(self) -> str:
-        return self.generate_operator_manifest('custom-metrics-autoscaler')
+        return self.generate_operator_manifest('openshift-custom-metrics-autoscaler-operator')
         
     @property
     def CERT_MANAGER_MANIFEST(self) -> str:

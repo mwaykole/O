@@ -109,27 +109,34 @@ class OpenShiftOperatorInstaller:
     @classmethod
     def install_keda_operator(cls, **kwargs) -> Tuple[int, str, str]:
         """Install the KEDA (Custom Metrics Autoscaler) Operator."""
-        result = cls.install_operator('custom-metrics-autoscaler', **kwargs)
+        logger.info("Installing KEDA (Custom Metrics Autoscaler) Operator...")
+        result = cls.install_operator('openshift-custom-metrics-autoscaler-operator', **kwargs)
         
         # After successful installation, create the KedaController resource
         if result[0] == 0:
-            logger.info("Creating KedaController resource...")
-            keda_controller_manifest = """
-apiVersion: keda.sh/v1alpha1
+            logger.info("Operator installed successfully. Creating KedaController resource...")
+            
+            # Enhanced KedaController manifest with admission webhooks
+            keda_controller_manifest = """apiVersion: keda.sh/v1alpha1
 kind: KedaController
 metadata:
   name: keda
   namespace: openshift-keda
 spec:
-  watchNamespace: ''
-  operator:
-    logLevel: info
+  admissionWebhooks:
     logEncoder: console
+    logLevel: info
   metricsServer:
-    logLevel: '0'
+    logLevel: "0"
+  operator:
+    logEncoder: console
+    logLevel: info
   serviceAccount: {}
+  watchNamespace: ""
 """
-            cmd = f"{kwargs.get('oc_binary', 'oc')} apply -f - <<EOF\n{keda_controller_manifest}\nEOF"
+            oc_binary = kwargs.get('oc_binary', 'oc')
+            cmd = f"{oc_binary} apply -f - <<EOF\n{keda_controller_manifest}\nEOF"
+            
             try:
                 rc, stdout, stderr = run_command(
                     cmd,
@@ -139,11 +146,39 @@ spec:
                     log_output=True
                 )
                 if rc == 0:
-                    logger.info("KedaController resource created successfully")
+                    logger.info("✅ KedaController resource created successfully")
+                    
+                    # Wait for KEDA to be ready
+                    logger.info("Waiting for KEDA to become ready...")
+                    keda_ready_cmd = f"{oc_binary} get kedacontroller keda -n openshift-keda -o jsonpath='{{.status.phase}}'"
+                    
+                    # Wait up to 2 minutes for KEDA to be ready
+                    import time
+                    end_time = time.time() + 120
+                    while time.time() < end_time:
+                        try:
+                            rc, phase, stderr = run_command(keda_ready_cmd, log_output=False)
+                            if rc == 0 and "Installation Succeeded" in phase:
+                                logger.info("✅ KEDA is ready and operational!")
+                                break
+                            elif rc == 0 and phase:
+                                logger.debug(f"KEDA status: {phase}")
+                            time.sleep(5)
+                        except Exception:
+                            time.sleep(5)
+                    else:
+                        logger.warning("⚠️  KEDA may still be starting up. Check status with: oc get kedacontroller keda -n openshift-keda")
+                        
                 else:
-                    logger.warning(f"Failed to create KedaController resource: {stderr}")
+                    logger.error(f"❌ Failed to create KedaController resource: {stderr}")
+                    # Don't fail the installation if KedaController creation fails
+                    logger.warning("You can manually create the KedaController later if needed")
+                    
             except Exception as e:
-                logger.warning(f"Failed to create KedaController resource: {str(e)}")
+                logger.error(f"❌ Failed to create KedaController resource: {str(e)}")
+                logger.warning("You can manually create the KedaController later if needed")
+        else:
+            logger.error("❌ KEDA Operator installation failed")
         
         return result
 

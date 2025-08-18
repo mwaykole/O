@@ -27,7 +27,7 @@ def install_operator(op_name: str, config: Dict[str, Any]) -> bool:
             'authorino': ('authorino-operator', 'install_authorino_operator'),
             'cert-manager': ('openshift-cert-manager-operator', 'install_cert_manager_operator'),
             'kueue': ('kueue-operator', 'install_kueue_operator'),
-            'keda': ('custom-metrics-autoscaler', 'install_keda_operator')
+            'keda': ('openshift-custom-metrics-autoscaler-operator', 'install_keda_operator')
         }
         
         # Build dynamic operator map
@@ -131,7 +131,7 @@ def install_operators(selected_ops: Dict[str, bool], config: Dict[str, Any]) -> 
         'authorino': 'authorino-operator',
         'cert-manager': 'openshift-cert-manager-operator',
         'kueue': 'kueue-operator',
-        'keda': 'custom-metrics-autoscaler'
+        'keda': 'openshift-custom-metrics-autoscaler-operator'
     }
     
     # Get operator keys for validation (exclude RHOAI as it has different pattern)
