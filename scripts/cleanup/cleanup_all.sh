@@ -238,7 +238,7 @@ local operators=(
         "openshift-pipelines-operator-rh"
         "openshift-cert-manager-operator"
         "kueue-operator"
-        "custom-metrics-autoscaler"
+        "openshift-custom-metrics-autoscaler-operator"
 )
 
 for operator in "${operators[@]}"; do
@@ -277,7 +277,7 @@ oc delete scaledjobs --all -A --force --grace-period=0 || true
 
 # Delete InstallPlans
 log_info "Deleting InstallPlans..."
-for installplan in $(oc get installPlan -n openshift-operators | grep -E 'authorino|serverless|servicemeshoperator|opendatahub|pipeline|cert-manager|kueue|keda|custom-metrics-autoscaler' | awk '{print $1}'); do
+for installplan in $(oc get installPlan -n openshift-operators | grep -E 'authorino|serverless|servicemeshoperator|opendatahub|pipeline|cert-manager|kueue|keda|openshift-custom-metrics-autoscaler-operator' | awk '{print $1}'); do
         oc delete installPlan -n openshift-operators "$installplan"  || true
 done
 
@@ -289,7 +289,7 @@ for installplan in $(oc get installPlan -n openshift-kueue-operator | grep -E 'k
         oc delete installPlan -n openshift-kueue-operator "$installplan"  || true
 done
 
-for installplan in $(oc get installPlan -n openshift-keda | grep -E 'keda|custom-metrics-autoscaler' | awk '{print $1}'); do
+for installplan in $(oc get installPlan -n openshift-keda | grep -E 'keda|openshift-custom-metrics-autoscaler-operator' | awk '{print $1}'); do
         oc delete installPlan -n openshift-keda "$installplan"  || true
 done
 
