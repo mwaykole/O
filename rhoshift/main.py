@@ -40,6 +40,7 @@ def main() -> Optional[int]:
             'rhoai_channel': args.rhoai_channel,
             'raw': args.raw,
             'create_dsc_dsci': args.deploy_rhoai_resources,
+            'kueue_management_state': args.kueue if args.kueue else ('Unmanaged' if args.all else None),  # Pass the management state
         }
         logger.info(config)
         # Determine which operators to install
@@ -48,7 +49,7 @@ def main() -> Optional[int]:
             'servicemesh': args.servicemesh or args.all,
             'authorino': args.authorino or args.all,
             'cert-manager': getattr(args, 'cert_manager', False) or args.all,
-            'kueue': args.kueue or args.all,
+            'kueue': bool(args.kueue) or args.all,  # Convert to boolean for operator selection
             'keda': args.keda or args.all,
             'rhoai': args.rhoai,
         }

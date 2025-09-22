@@ -26,7 +26,8 @@ def parse_args() -> argparse.Namespace:
     operator_group.add_argument('--authorino', action='store_true', help='Install Authorino Operator')
     operator_group.add_argument('--cert-manager', action='store_true', help='Install cert-manager Operator (latest v1.16.1)')
     operator_group.add_argument('--rhoai', action='store_true', help='Install RHOArawI Operator')
-    operator_group.add_argument('--kueue', action='store_true', help='Install Kueue Operator (requires cert-manager)')
+    operator_group.add_argument('--kueue', nargs='?', const='Unmanaged', choices=['Managed', 'Unmanaged'], 
+                                help='Install Kueue Operator with specified managementState in DSC (default: Unmanaged if no value provided)')
     operator_group.add_argument('--keda', action='store_true', help='Install KEDA (Custom Metrics Autoscaler) Operator')
     operator_group.add_argument('--all', action='store_true', help='Install all operators')
     operator_group.add_argument('--cleanup', action='store_true', help='clean up all RHOAI, serverless , servishmesh , Authorino Operator')
