@@ -27,10 +27,11 @@ A comprehensive toolkit for managing and upgrading Red Hat OpenShift AI (RHOAI) 
   - Authorino Operator
   - cert-manager Operator (Kueue dependency)
   - RHOAI Operator
-  - Kueue Operator
+  - Kueue Operator **with DSC Integration**
   - KEDA (Custom Metrics Autoscaler) Operator
 - **Automatic Dependency Resolution**: Installs required operators in correct order
 - **Smart Validation**: Pre-installation compatibility and conflict detection
+- **🆕 Kueue DSC Integration**: Automatically updates RHOAI DataScienceCluster with Kueue management state
 
 ## 📁 Project Structure
 
@@ -94,17 +95,24 @@ rhoshift --help
 
 ```bash
 rhoshift --help
-usage: rhoshift [-h] [--serverless] [--servicemesh] [--authorino] [--cert-manager] 
-                [--rhoai] [--kueue] [--keda] [--all] [--cleanup] [--deploy-rhoai-resources]
-                [--oc-binary OC_BINARY] [--retries RETRIES] [--retry-delay RETRY_DELAY]
-                [--timeout TIMEOUT] [--rhoai-channel RHOAI_CHANNEL] [--raw RAW]
-                [--rhoai-image RHOAI_IMAGE] [-v]
+usage: rhoshift [-h] [--serverless] [--servicemesh] [--authorino] [--cert-manager]
+                [--rhoai] [--kueue [{Managed,Unmanaged}]] [--keda] [--all] [--cleanup]
+                [--deploy-rhoai-resources] [--summary] [--oc-binary OC_BINARY]
+                [--retries RETRIES] [--retry-delay RETRY_DELAY] [--timeout TIMEOUT]
+                [--rhoai-channel RHOAI_CHANNEL] [--raw RAW] [--rhoai-image RHOAI_IMAGE]
 
 Operator Selection:
-  --cert-manager        Install cert-manager Operator
-  --kueue              Install Kueue Operator (auto-installs cert-manager)
-  --keda               Install KEDA (Custom Metrics Autoscaler) Operator
-  [... other options ...]
+  --serverless          Install OpenShift Serverless Operator
+  --servicemesh         Install Service Mesh Operator
+  --authorino           Install Authorino Operator
+  --cert-manager        Install cert-manager Operator (latest v1.16.1)
+  --rhoai               Install RHOAI Operator
+  --kueue [{Managed,Unmanaged}]  Install Kueue Operator with DSC managementState (default: Unmanaged)
+  --keda                Install KEDA (Custom Metrics Autoscaler) Operator
+  --all                 Install all operators
+  --cleanup             Clean up all RHOAI, serverless, servicemesh, Authorino operators
+  --deploy-rhoai-resources      Create DSC and DSCI with RHOAI installation
+  --summary             Show detailed summary of all supported operators and versions
 ```
 
 ## 💻 Usage
@@ -121,8 +129,13 @@ rhoshift --serverless --servicemesh
 # Install cert-manager operator
 rhoshift --cert-manager
 
-# Install Kueue operator (automatically installs cert-manager dependency)
+# Install Kueue operator with default managementState (Unmanaged)
+# Automatically installs cert-manager dependency
 rhoshift --kueue
+
+# Install Kueue operator with specific managementState in DSC
+rhoshift --kueue Managed     # Sets Kueue as Managed in DSC
+rhoshift --kueue Unmanaged   # Sets Kueue as Unmanaged in DSC
 
 # Install KEDA (Custom Metrics Autoscaler) operator
 rhoshift --keda
@@ -133,7 +146,7 @@ rhoshift --rhoai --rhoai-channel=<channel> --rhoai-image=<image> --raw=True
 # Install RHOAI with Serverless configuration
 rhoshift --rhoai --rhoai-channel=<channel> --rhoai-image=<image> --raw=False --all
 
-# Install all operators (including Kueue and KEDA)
+# Install all operators (Kueue will be set to Unmanaged in DSC)
 rhoshift --all
 
 # Create DSC and DSCI with RHOAI operator installation
@@ -154,11 +167,14 @@ The tool automatically handles operator dependencies and provides smart validati
 
 ```bash
 # This command will install BOTH cert-manager AND Kueue (in correct order)
+# Kueue will be set to Unmanaged in DSC (if DSC exists)
 rhoshift --kueue
 
 # You'll see output like:
 # 📦 Auto-adding dependency: cert-manager
 # Installing 2 operators in order: cert-manager → kueue
+# 🔄 Updating DSC with Kueue managementState: Unmanaged
+# ✅ Successfully updated DSC with Kueue managementState: Unmanaged
 ```
 
 #### **Smart Validation**
@@ -179,6 +195,44 @@ rhoshift --kueue
 
 > **Note**: When installing Kueue individually (`--kueue`), you will see dependency warnings. For automatic dependency installation, use batch mode (`--cert-manager --kueue`) or install dependencies manually first.
 
+### 🎯 Kueue DSC Integration
+
+**New Feature**: Kueue operator installation now automatically updates the RHOAI DataScienceCluster (DSC) when a management state is specified.
+
+#### **Kueue Management States**
+- **`Managed`**: RHOAI controls Kueue configuration and lifecycle
+- **`Unmanaged`**: Kueue runs independently, not managed by RHOAI
+
+#### **Usage Examples**
+
+```bash
+# Install Kueue as Managed (RHOAI controls it)
+rhoshift --kueue Managed
+
+# Install Kueue as Unmanaged (independent operation) - DEFAULT
+rhoshift --kueue Unmanaged
+rhoshift --kueue  # Same as above
+
+# Switch between states (updates existing DSC)
+rhoshift --kueue Managed    # Change to Managed
+rhoshift --kueue Unmanaged  # Change back to Unmanaged
+```
+
+#### **Behavior**
+- **DSC Exists**: Automatically updates Kueue managementState in existing DSC
+- **No DSC**: Shows info message that state will be applied when DSC is created
+- **Error Handling**: Graceful warnings if DSC update fails
+
+#### **Output Examples**
+```bash
+# When DSC exists and gets updated:
+🔄 Updating DSC with Kueue managementState: Unmanaged
+✅ Successfully updated DSC with Kueue managementState: Unmanaged
+
+# When no DSC exists:
+ℹ️  No existing DSC found. Kueue managementState will be applied when DSC is created.
+```
+
 ### Advanced Options
 
 ```bash
@@ -190,10 +244,13 @@ rhoshift --all --timeout 900
 
 # Install queue management and auto-scaling operators together
 # (cert-manager will be automatically installed as Kueue dependency)
-rhoshift --kueue --keda
+rhoshift --kueue Managed --keda
 
 # Install complete ML/AI stack with queue management
-rhoshift --rhoai --kueue --keda --rhoai-channel=stable --rhoai-image=<image>
+rhoshift --rhoai --kueue Managed --keda --rhoai-channel=stable --rhoai-image=quay.io/rhoai/rhoai-fbc-fragment:rhoai-2.25-nightly
+
+# Show summary of all supported operators and their versions
+rhoshift --summary
 
 # Install only cert-manager for other uses
 rhoshift --cert-manager

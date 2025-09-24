@@ -49,8 +49,8 @@ def parse_args() -> argparse.Namespace:
     config.add_argument("--raw", default=False, type=str_to_bool,
                         help="True if install raw else False")
     config.add_argument("--rhoai-image", required='--rhoai' in sys.argv, type=str,
-                        default="quay.io/rhoai/rhoai-fbc-fragment:rhoai-2.20-nightly",
-                        help="rhoai image eg: quay.io/rhoai/rhoai-fbc-fragment:rhoai-2.20-nightly")
+                        default="quay.io/rhoai/rhoai-fbc-fragment:rhoai-2.25-nightly",
+                        help="rhoai image eg: quay.io/rhoai/rhoai-fbc-fragment:rhoai-2.25-nightly")
 
     # Output control
     output = parser.add_argument_group("Output Control")

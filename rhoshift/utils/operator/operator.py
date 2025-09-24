@@ -103,8 +103,32 @@ class OpenShiftOperatorInstaller:
 
     @classmethod
     def install_kueue_operator(cls, **kwargs) -> Tuple[int, str, str]:
-        """Install the Kueue Operator."""
-        return cls.install_operator('kueue-operator', **kwargs)
+        """Install the Kueue Operator and update DSC if management state is specified."""
+        result = cls.install_operator('kueue-operator', **kwargs)
+
+        # If installation successful and kueue_management_state is specified, update DSC
+        if result[0] == 0:
+            kueue_management_state = kwargs.get('kueue_management_state')
+            if kueue_management_state is not None:
+                try:
+                    # Check if DSC exists
+                    oc_binary = kwargs.get('oc_binary', 'oc')
+                    from rhoshift.utils.utils import run_command
+
+                    rc, stdout, stderr = run_command(f"{oc_binary} get dsc -A", log_output=False)
+                    if rc == 0 and stdout.strip():
+                        logger.info(f"🔄 Updating DSC with Kueue managementState: {kueue_management_state}")
+
+                        # Update DSC with the new Kueue management state
+                        cls._update_dsc_kueue_state(kueue_management_state, oc_binary)
+                    else:
+                        logger.info("ℹ️  No existing DSC found. Kueue managementState will be applied when DSC is created.")
+
+                except Exception as e:
+                    logger.warning(f"⚠️  Failed to update DSC with Kueue managementState: {str(e)}")
+                    logger.warning("   DSC can be manually updated later if needed.")
+
+        return result
 
     @classmethod
     def install_keda_operator(cls, **kwargs) -> Tuple[int, str, str]:
@@ -231,11 +255,15 @@ spec:
                 f"cd {temp_dir}"
             )
 
+            # Filter out parameters not accepted by run_command
+            run_command_kwargs = {k: v for k, v in kwargs.items()
+                                if k in ['max_retries', 'retry_delay']}
+
             rc, stdout, stderr = run_command(
                 clone_cmd,
                 timeout=WaitTime.WAIT_TIME_5_MIN,
                 log_output=True,
-                **kwargs
+                **run_command_kwargs
             )
             if rc != 0:
                 raise RuntimeError(f"Failed to clone olminstall repo: {stderr}")
@@ -251,7 +279,7 @@ spec:
                 install_cmd,
                 timeout=timeout,
                 log_output=True,
-                **kwargs
+                **run_command_kwargs
             )
 
             if rc != 0:
@@ -296,6 +324,52 @@ spec:
                     run_command(f"rm -rf {temp_dir}", log_output=False)
             except Exception:
                 pass
+
+    @classmethod
+    def _update_dsc_kueue_state(cls, kueue_management_state: str, oc_binary: str = "oc"):
+        """Update existing DSC with new Kueue managementState."""
+        try:
+            # Get the current DSC
+            rc, stdout, stderr = run_command(f"{oc_binary} get dsc -o json", log_output=False)
+            if rc != 0:
+                raise RuntimeError(f"Failed to get DSC: {stderr}")
+
+            import json
+            dsc_list = json.loads(stdout)
+            if not dsc_list.get('items'):
+                logger.warning("No DSC found to update")
+                return
+
+            # Update the first DSC found
+            dsc = dsc_list['items'][0]
+            dsc_name = dsc['metadata']['name']
+            dsc_namespace = dsc['metadata'].get('namespace', '')
+
+            # Patch the DSC to update Kueue managementState
+            patch_data = {
+                "spec": {
+                    "components": {
+                        "kueue": {
+                            "managementState": kueue_management_state
+                        }
+                    }
+                }
+            }
+
+            patch_cmd = f"{oc_binary} patch dsc {dsc_name}"
+            if dsc_namespace:
+                patch_cmd += f" -n {dsc_namespace}"
+            patch_cmd += f" --type=merge -p '{json.dumps(patch_data)}'"
+
+            rc, stdout, stderr = run_command(patch_cmd, log_output=True)
+            if rc == 0:
+                logger.info(f"✅ Successfully updated DSC with Kueue managementState: {kueue_management_state}")
+            else:
+                raise RuntimeError(f"Failed to patch DSC: {stderr}")
+
+        except Exception as e:
+            logger.error(f"Failed to update DSC Kueue state: {str(e)}")
+            raise
 
     @classmethod
     def _install_operator(cls, operator_name: str, manifest: str, **kwargs) -> Tuple[int, str, str]:
