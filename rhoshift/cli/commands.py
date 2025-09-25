@@ -93,9 +93,9 @@ def install_operator(op_name: str, config: Dict[str, Any]) -> bool:
         for warning in warnings:
             logger.warning(f"⚠️  {warning}")
     
-    # Special handling for RHOAI (different pattern)
+    # Special handling for RHOAI (different pattern) - use enhanced installer
     operator_map['rhoai'] = {
-        'installer': OpenShiftOperatorInstaller.install_rhoai_operator,
+        'installer': OpenShiftOperatorInstaller.install_rhoai_operator_enhanced,
         'channel': config.get("rhoai_channel"),
         'rhoai_image': config.get("rhoai_image"),
         'raw': config.get("raw", False),
