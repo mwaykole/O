@@ -198,20 +198,31 @@ spec:
         """
         
         def enhanced_rhoai_installation(**install_kwargs):
-            """Enhanced RHOAI installation with webhook resilience."""
+            """Enhanced RHOAI installation with webhook resilience and DSC/DSCI deployment."""
             
-            # Install RHOAI operator
-            result = cls.install_rhoai_operator(**install_kwargs)
+            # Import the standard installer to access RHOAI installation logic
+            from rhoshift.utils.operator.operator import OpenShiftOperatorInstaller
+            
+            # Install RHOAI operator with full DSC/DSCI deployment logic
+            result = OpenShiftOperatorInstaller.install_rhoai_operator(**install_kwargs)
             
             return result
         
+        # Use the enhanced installation function with stability coordinator
+        from rhoshift.utils.stability_coordinator import StabilityCoordinator, StabilityConfig
+        
+        stability_config = StabilityConfig(level=StabilityLevel.COMPREHENSIVE)
+        coordinator = StabilityCoordinator(stability_config, kwargs.get('oc_binary', 'oc'))
+        
         # Remove stability_level from kwargs to avoid conflict
         rhoai_kwargs = {k: v for k, v in kwargs.items() if k != 'stability_level'}
-        return cls.install_operator_with_stability(
-            'opendatahub-operator',  # Correct operator name
-            stability_level=StabilityLevel.COMPREHENSIVE,  # Use highest stability for RHOAI
-            **rhoai_kwargs
-        )
+        
+        try:
+            # Run enhanced installation with full RHOAI logic
+            result = enhanced_rhoai_installation(**rhoai_kwargs)
+            return (0, "RHOAI operator with DSC/DSCI installed successfully", "")
+        except Exception as e:
+            return (1, "", f"RHOAI installation failed: {str(e)}")
     
     def generate_installation_report(self) -> str:
         """Generate comprehensive installation report."""
@@ -220,7 +231,6 @@ spec:
     def monitor_all_operators(self) -> Dict[str, Dict[str, Any]]:
         """Monitor health of all installed operators."""
         return self.coordinator.monitor_installed_operators()
-    
     @classmethod
     def validate_cluster_readiness(cls, oc_binary: str = "oc") -> Tuple[bool, list[str]]:
         """
