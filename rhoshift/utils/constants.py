@@ -102,6 +102,15 @@ class OpenShiftOperatorInstallManifest:
             csv_name_prefix='custom-metrics-autoscaler',  # CSV uses shorter name prefix
             post_install_hook='create_keda_controller'
         ),
+        'opendatahub-operator': OperatorConfig(
+            name='opendatahub-operator',
+            display_name='Open Data Hub Operator',
+            namespace='openshift-operators',
+            channel='stable',
+            catalog_source=CatalogSource.COMMUNITY_OPERATORS,
+            install_mode=InstallMode.ALL_NAMESPACES,
+            create_namespace=False  # Uses existing openshift-operators
+        ),
     }
 
     @classmethod
@@ -539,10 +548,12 @@ def get_dsc_manifest(enable_dashboard=True,
                      enable_kserve=True,
                      enable_raw_serving=True,
                      enable_modelmeshserving=True,
-                     operator_namespace="rhods-operator"):
+                     operator_namespace="rhods-operator",
+                     kueue_management_state=None):
     def to_state(flag): return "Managed" if flag else "Removed"
 
-    return f"""apiVersion: datasciencecluster.opendatahub.io/v1
+    # Build the base manifest
+    manifest = f"""apiVersion: datasciencecluster.opendatahub.io/v1
 kind: DataScienceCluster
 metadata:
   labels:
@@ -565,7 +576,17 @@ spec:
           certificate:
             type: OpenshiftDefaultIngress
         managementState: {to_state(enable_raw_serving ^ True)}
-        name: knative-serving
+        name: knative-serving"""
+
+    # Add Kueue component if kueue_management_state is specified
+    if kueue_management_state is not None:
+        manifest += f"""
+    kueue:
+      managementState: {kueue_management_state}"""
+
+    # Add modelmeshserving component
+    manifest += f"""
     modelmeshserving:
       managementState: {to_state(enable_modelmeshserving)}
 """
+    return manifest

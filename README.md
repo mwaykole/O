@@ -1,298 +1,406 @@
-# RHOAI Tool Kit
+# RHOShift - OpenShift Operator Installation Toolkit
 
 ![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)
 ![OpenShift Compatible](https://img.shields.io/badge/OpenShift-4.x-lightgrey.svg)
+![Stability Level](https://img.shields.io/badge/stability-enhanced-brightgreen.svg)
 
-A comprehensive toolkit for managing and upgrading Red Hat OpenShift AI (RHOAI) installations with parallel installation support.
+A comprehensive, enterprise-grade toolkit for managing OpenShift operators with enhanced stability features, automatic dependency resolution, and Red Hat OpenShift AI (RHOAI) integration.
 
 ## 📋 Table of Contents
 - [Features](#-features)
-- [Project Structure](#-project-structure)
+- [Enhanced Stability Features](#-enhanced-stability-features)
+- [Supported Operators](#-supported-operators)
 - [Installation](#-installation)
 - [Usage](#-usage)
-- [Logging](#-logging)
+- [Advanced Usage](#-advanced-usage)
+- [Dependency Management](#-dependency-management)
+- [RHOAI Integration](#-rhoai-integration)
 - [Configuration](#-configuration)
-- [Development](#-development)
 - [Troubleshooting](#-troubleshooting)
 - [Contributing](#-contributing)
 
 ## ✨ Features
-- Install single or multiple OpenShift operators
-- Parallel installation for faster deployments
-- Configurable timeouts and retries
-- Comprehensive logging system
-- Supports:
-  - Serverless Operator
-  - Service Mesh Operator
-  - Authorino Operator
-  - cert-manager Operator (Kueue dependency)
-  - RHOAI Operator
-  - Kueue Operator
-  - KEDA (Custom Metrics Autoscaler) Operator
-- **Automatic Dependency Resolution**: Installs required operators in correct order
-- **Smart Validation**: Pre-installation compatibility and conflict detection
 
-## 📁 Project Structure
+### 🚀 **Core Functionality**
+- **7 Enterprise Operators**: Complete operator stack for modern OpenShift deployments
+- **Enhanced Stability System**: 3-tier stability levels with comprehensive error handling
+- **Automatic Dependency Resolution**: Smart installation order with dependency detection
+- **Pre-flight Validation**: Cluster readiness and permission verification
+- **Health Monitoring**: Real-time operator status tracking and reporting
+- **Auto-recovery**: Intelligent error classification and automatic retry logic
 
-```
-rhoshift/
-├── rhoshift/              # Main package directory
-│   ├── __init__.py
-│   ├── main.py           # CLI entry point
-│   ├── cli/              # Command-line interface
-│   │   ├── __init__.py
-│   │   ├── args.py      # Argument parsing
-│   │   └── commands.py  # Command implementations
-│   ├── logger/          # Logging utilities
-│   │   ├── __init__.py
-│   │   └── logger.py    # Logging configuration
-│   └── utils/           # Core utilities
-│       ├── __init__.py
-│       ├── constants.py # Constants and configurations
-│       ├── operator.py  # Operator management
-│       └── utils.py     # Utility functions
-├── run_upgrade_matrix.sh  # Upgrade matrix execution script
-├── upgrade_matrix_usage.md # Upgrade matrix documentation
-├── pyproject.toml        # Project dependencies and configuration
-└── README.md            # This document
-```
+### 🛡️ **Enterprise-Grade Reliability**
+- **Comprehensive Error Handling**: 59+ exception handlers throughout codebase
+- **Webhook Certificate Resilience**: Automatic timing issue resolution for RHOAI
+- **Resource Conflict Detection**: Prevention of operator namespace conflicts
+- **Smart Retry Logic**: Exponential backoff with contextual error recovery
+- **Parallel Installation**: Optimized performance for multiple operators
 
-## 📋 Components
+### 🔧 **Advanced Integration**
+- **RHOAI DSC/DSCI Management**: Complete DataScienceCluster lifecycle control
+- **Kueue Management States**: Dynamic DSC integration with Managed/Unmanaged modes
+- **KedaController Automation**: Automatic KEDA controller creation and validation
+- **Configurable Timeouts**: Flexible timing control for enterprise environments
 
-### Core Components
-- **CLI**: Command-line interface for operator management
-- **Logger**: Logging configuration and utilities (logs to `/tmp/rhoshift.log`)
-- **Utils**: Core utilities and operator management logic
+## 🛡️ Enhanced Stability Features
 
-### RHOAI Components
-- **RHOAI Upgrade Matrix**: Utilities for testing RHOAI upgrades
-- **Upgrade Matrix Scripts**: Execution and documentation for upgrade testing
+RHOShift includes a comprehensive stability system designed for enterprise deployments:
 
-### Maintenance Scripts
-- **Cleanup Scripts**: Utilities for cleaning up operator installations
-- **Worker Node Scripts**: Utilities for managing worker node configurations
+### **Stability Levels**
+- **🟢 Enhanced (Default)**: Pre-flight checks + health monitoring + auto-recovery
+- **🔵 Comprehensive**: Maximum resilience with advanced error classification
+- **⚪ Basic**: Standard installation with basic error handling
+
+### **Pre-flight Validation**
+- ✅ Cluster connectivity and authentication
+- ✅ Required permissions verification  
+- ✅ Resource quota validation
+- ✅ Operator catalog accessibility
+- ✅ Namespace conflict detection
+- ✅ DSCI compatibility validation for RHOAI installations
+
+### **Health Monitoring**
+- 📊 Real-time operator status tracking
+- 🔍 Multi-resource health validation
+- 📈 Installation progress reporting
+- ⚡ Performance metrics and timing
+
+### **Auto-recovery Features**
+- 🔄 Intelligent retry mechanisms
+- 🧠 Error classification (transient vs. permanent)
+- ⏰ Exponential backoff strategies
+- 🛠️ Automatic resource cleanup and recreation
+
+## 📦 Supported Operators
+
+| Operator | Package | Namespace | Channel | Dependencies |
+|----------|---------|-----------|---------|--------------|
+| **OpenShift Serverless** | `serverless-operator` | `openshift-serverless` | `stable` | None |
+| **Service Mesh** | `servicemeshoperator` | `openshift-operators` | `stable` | None |
+| **Authorino** | `authorino-operator` | `openshift-operators` | `stable` | None |
+| **cert-manager** | `openshift-cert-manager-operator` | `cert-manager-operator` | `stable-v1` | None |
+| **Kueue** | `kueue-operator` | `openshift-kueue-operator` | `stable-v1.0` | cert-manager |
+| **KEDA** | `openshift-custom-metrics-autoscaler-operator` | `openshift-keda` | `stable` | None |
+| **RHOAI/ODH** | `opendatahub-operator` | `openshift-operators` | `stable` | None |
 
 ## 🚀 Installation
 
-1. Clone the repository:
+### Quick Install
 ```bash
 git clone https://github.com/mwaykole/O.git
 cd O
-```
-
-2. Install dependencies:
-```bash
 pip install -e .
 ```
 
-3. Verify installation:
+### Verify Installation
 ```bash
 rhoshift --help
-```
-
-### 🔧 New CLI Options
-
-```bash
-rhoshift --help
-usage: rhoshift [-h] [--serverless] [--servicemesh] [--authorino] [--cert-manager] 
-                [--rhoai] [--kueue] [--keda] [--all] [--cleanup] [--deploy-rhoai-resources]
-                [--oc-binary OC_BINARY] [--retries RETRIES] [--retry-delay RETRY_DELAY]
-                [--timeout TIMEOUT] [--rhoai-channel RHOAI_CHANNEL] [--raw RAW]
-                [--rhoai-image RHOAI_IMAGE] [-v]
-
-Operator Selection:
-  --cert-manager        Install cert-manager Operator
-  --kueue              Install Kueue Operator (auto-installs cert-manager)
-  --keda               Install KEDA (Custom Metrics Autoscaler) Operator
-  [... other options ...]
+rhoshift --summary
 ```
 
 ## 💻 Usage
 
-### Basic Commands
-
+### **Basic Commands**
 ```bash
-# Install single operator
+# Install single operator with enhanced stability
 rhoshift --serverless
 
-# Install multiple operators
-rhoshift --serverless --servicemesh
+# Install multiple operators with batch optimization
+rhoshift --serverless --servicemesh --authorino
 
-# Install cert-manager operator
-rhoshift --cert-manager
-
-# Install Kueue operator (automatically installs cert-manager dependency)
+# Install with dependency resolution (Kueue + cert-manager)
 rhoshift --kueue
 
-# Install KEDA (Custom Metrics Autoscaler) operator
-rhoshift --keda
-
-# Install RHOAI with raw configuration
-rhoshift --rhoai --rhoai-channel=<channel> --rhoai-image=<image> --raw=True
-
-# Install RHOAI with Serverless configuration
-rhoshift --rhoai --rhoai-channel=<channel> --rhoai-image=<image> --raw=False --all
-
-# Install all operators (including Kueue and KEDA)
+# Install all operators (includes DSCI validation for RHOAI)
 rhoshift --all
 
-# Create DSC and DSCI with RHOAI operator installation
-rhoshift --rhoai --deploy-rhoai-resources
+# Install all with RHOAI channel preference
+rhoshift --all --rhoai-channel=odh-nightlies
+
+# Show detailed operator summary
+rhoshift --summary
 
 # Clean up all operators
 rhoshift --cleanup
 ```
 
-### 🔗 Operator Dependencies & Validation
-
-The tool automatically handles operator dependencies and provides smart validation:
-
-#### **Automatic Dependency Resolution**
-- **Kueue** requires **cert-manager**: Installing Kueue automatically includes cert-manager
-- Dependencies are installed in the correct order to prevent failures
-- Missing dependencies are automatically detected and added
-
+### **RHOAI with DSC/DSCI**
 ```bash
-# This command will install BOTH cert-manager AND Kueue (in correct order)
-rhoshift --kueue
+# Install RHOAI with complete setup
+rhoshift --rhoai \
+  --rhoai-channel=odh-nightlies \
+  --rhoai-image=brew.registry.redhat.io/rh-osbs/iib:1049242 \
+  --deploy-rhoai-resources
 
-# You'll see output like:
-# 📦 Auto-adding dependency: cert-manager
-# Installing 2 operators in order: cert-manager → kueue
+# Install RHOAI with Kueue integration
+rhoshift --rhoai --kueue Managed \
+  --rhoai-channel=stable \
+  --rhoai-image=quay.io/rhoai/rhoai-fbc-fragment:rhoai-2.25-nightly \
+  --deploy-rhoai-resources
 ```
 
-#### **Smart Validation**
-- **Compatibility Checking**: Warns about potential operator conflicts
-- **Namespace Validation**: Detects if operators conflict in shared namespaces
-- **Pre-Installation Validation**: Catches issues before installation starts
-
+### **Kueue Management States**
 ```bash
-# Example validation warnings:
-# ⚠️  Note: Kueue and KEDA may have resource conflicts. Monitor for admission webhook issues.
-# ⚠️  Installation order will be adjusted for dependencies: cert-manager → kueue
+# Install Kueue as Managed (RHOAI controls it)
+rhoshift --kueue Managed
+
+# Install Kueue as Unmanaged (independent) - Default
+rhoshift --kueue Unmanaged
+rhoshift --kueue  # Same as above
+
+# Switch management states (updates existing DSC)
+rhoshift --kueue Managed    # Switch to Managed
+rhoshift --kueue Unmanaged  # Switch to Unmanaged
 ```
 
-#### **Supported Dependencies**
-| Primary Operator | Required Dependencies |
-|-----------------|----------------------|
-| Kueue           | cert-manager         |
+## 🔧 Advanced Usage
 
-> **Note**: When installing Kueue individually (`--kueue`), you will see dependency warnings. For automatic dependency installation, use batch mode (`--cert-manager --kueue`) or install dependencies manually first.
-
-### Advanced Options
-
+### **Enterprise Deployment**
 ```bash
+# Complete ML/AI stack with queue management
+rhoshift --all --kueue Managed \
+  --rhoai-channel=stable \
+  --rhoai-image=brew.registry.redhat.io/rh-osbs/iib:1049242 \
+  --deploy-rhoai-resources \
+  --timeout=900
+
+# High-availability setup with service mesh
+rhoshift --serverless --servicemesh --keda --authorino
+
+# Development environment setup
+rhoshift --cert-manager --kueue Unmanaged --keda
+```
+
+### **Custom Configuration**
+```bash
+# Custom timeouts and retries for enterprise clusters
+rhoshift --all \
+  --timeout=1200 \
+  --retries=5 \
+  --retry-delay=15
+
 # Custom oc binary path
-rhoshift --serverless --oc-binary /path/to/oc
+rhoshift --serverless --oc-binary=/usr/local/bin/oc
 
-# Custom timeout (seconds)
-rhoshift --all --timeout 900
-
-# Install queue management and auto-scaling operators together
-# (cert-manager will be automatically installed as Kueue dependency)
-rhoshift --kueue --keda
-
-# Install complete ML/AI stack with queue management
-rhoshift --rhoai --kueue --keda --rhoai-channel=stable --rhoai-image=<image>
-
-# Install only cert-manager for other uses
-rhoshift --cert-manager
-
-# Verbose output
-rhoshift --all --verbose
+# Verbose output for debugging
+rhoshift --kueue Managed --verbose
 ```
 
-### Upgrade Matrix Testing
+## 🔗 Dependency Management
 
-To run the upgrade matrix tests, you can use either method:
+RHOShift automatically handles operator dependencies:
 
-1. Using the shell script:
+### **Automatic Resolution**
+- **Kueue** → **cert-manager**: Installing Kueue automatically includes cert-manager
+- **Installation Order**: Dependencies installed first, primary operators second
+- **Conflict Detection**: Prevents namespace and resource conflicts
+
+### **Smart Validation**
 ```bash
-./run_upgrade_matrix.sh [options] <current_version> <current_channel> <new_version> <new_channel>
+# This command installs BOTH cert-manager AND Kueue in correct order:
+rhoshift --kueue
+# Output:
+# 🔍 Pre-flight checks passed. Cluster is ready for installation.
+# ⚠️  Missing dependency: kueue-operator requires openshift-cert-manager-operator
+# 🚀 Installing 2 operators with enhanced stability...
+# ✅ cert-manager installed successfully
+# ✅ kueue installed successfully
 ```
 
-2. Using the Python command:
+## 🤖 RHOAI Integration
+
+### **DataScienceCluster Management**
+RHOShift provides complete DSC/DSCI lifecycle management:
+
 ```bash
-run-upgrade-matrix [options] <current_version> <current_channel> <new_version> <new_channel>
+# Create RHOAI with DSC/DSCI
+rhoshift --rhoai --deploy-rhoai-resources
+
+# RHOAI with Kueue integration
+rhoshift --rhoai --kueue Managed --deploy-rhoai-resources
 ```
 
-Options:
-- `-s, --scenario`: Run specific scenario(s) (serverless, rawdeployment, serverless,rawdeployment)
-- `--skip-cleanup`: Skip cleanup before each scenario
-- `--from-image`: Custom source image path
-- `--to-image`: Custom target image path
+### **DSC Behavior**
+- **Existing DSC**: Automatically updates Kueue managementState
+- **No DSC**: State applied when DSC is created via `--deploy-rhoai-resources`
+- **Webhook Resilience**: Automatic handling of certificate timing issues
 
-Example:
+### **Output Examples**
 ```bash
-# Using shell script
-./run_upgrade_matrix.sh -s serverless -s rawdeployment 2.10 stable 2.12 stable
+# When DSC exists and gets updated:
+🔄 Updating DSC with Kueue managementState: Managed
+✅ Successfully updated DSC with Kueue managementState: Managed
 
-# Using Python command
-run-upgrade-matrix -s serverless -s rawdeployment 2.10 stable 2.12 stable
+# When no DSC exists:
+ℹ️  No existing DSC found. Kueue managementState will be applied when DSC is created.
 ```
 
-## 📝 Logging
+## ⚙️ Configuration
 
-The toolkit uses a comprehensive logging system:
-- Logs are stored in `/tmp/rhoshift.log`
-- Console output shows INFO level and above
-- File logging captures DEBUG level and above
-- Automatic log rotation (10MB max size, 5 backup files)
-- Colored output in supported terminals
-
-To view logs:
+### **CLI Options**
 ```bash
+Operator Selection:
+  --serverless          Install OpenShift Serverless Operator
+  --servicemesh         Install Service Mesh Operator  
+  --authorino           Install Authorino Operator
+  --cert-manager        Install cert-manager Operator
+  --rhoai               Install RHOAI Operator
+  --kueue [{Managed,Unmanaged}]  Install Kueue with DSC integration
+  --keda                Install KEDA (Custom Metrics Autoscaler)
+  --all                 Install all operators
+  --cleanup             Clean up all operators
+  --summary             Show operator summary
+
+Configuration:
+  --oc-binary OC_BINARY     Path to oc CLI (default: oc)
+  --retries RETRIES         Max retry attempts (default: 3)
+  --retry-delay RETRY_DELAY Delay between retries (default: 10s)
+  --timeout TIMEOUT         Command timeout (default: 300s)
+  
+RHOAI Options:
+  --rhoai-channel CHANNEL   RHOAI channel (stable/odh-nightlies)
+  --rhoai-image IMAGE       RHOAI container image
+  --raw RAW                 Enable raw serving (True/False)
+  --deploy-rhoai-resources  Create DSC and DSCI
+```
+
+### **Environment Variables**
+```bash
+export LOG_FILE_LEVEL=DEBUG      # File logging level
+export LOG_CONSOLE_LEVEL=INFO    # Console logging level
+```
+
+### **Logging**
+- **Location**: `/tmp/rhoshift.log`
+- **Rotation**: 10MB max size, 5 backup files
+- **Levels**: DEBUG (file) / INFO (console)
+- **Colors**: Supported in compatible terminals
+
+## 🔍 Troubleshooting
+
+### **Common Issues**
+
+#### **Permission Errors**
+```bash
+# Verify cluster access
+oc whoami
+oc auth can-i create subscriptions -n openshift-operators
+```
+
+#### **Installation Failures**
+```bash
+# Check logs
 tail -f /tmp/rhoshift.log
+
+# Verify operator catalogs
+oc get catalogsource -n openshift-marketplace
+
+# Check with enhanced timeouts
+rhoshift --kueue --timeout=900 --retries=5
 ```
 
-## 🔧 Configuration
+#### **Dependency Issues**
+```bash
+# Verify dependencies are resolved
+rhoshift --summary
 
-### Environment Variables
-- `LOG_FILE_LEVEL`: Set file logging level (default: DEBUG)
-- `LOG_CONSOLE_LEVEL`: Set console logging level (default: INFO)
+# Manual dependency installation
+rhoshift --cert-manager
+rhoshift --kueue
+```
 
-### Command Options
-- `--oc-binary`: Path to oc CLI (default: oc)
-- `--retries`: Max retry attempts (default: 3)
-- `--retry-delay`: Delay between retries in seconds (default: 10)
-- `--timeout`: Command timeout in seconds (default: 300)
+#### **RHOAI/DSC Issues**
+```bash
+# Check DSC status
+oc get dsc,dsci -A
+
+# Verify webhook certificates
+oc get pods -n opendatahub-operators
+
+# Manual DSC creation
+rhoshift --rhoai --deploy-rhoai-resources --timeout=900
+```
+
+#### **DSCI Immutable Field Conflicts**
+```bash
+# Error: MonitoringNamespace is immutable
+# This happens when existing DSCI has different monitoring namespace
+
+# Check existing DSCI configuration
+oc get dsci default-dsci -o yaml
+
+# Solution 1: Force recreate DSCI (recommended)
+rhoshift --rhoai --deploy-rhoai-resources
+
+# Solution 2: Use existing DSCI configuration
+# RHOShift will automatically detect and adapt to existing DSCI
+```
+
+### **Debug Mode**
+```bash
+# Enable verbose output
+rhoshift --all --verbose
+
+# Check stability report
+rhoshift --summary
+```
 
 ## 🛠️ Development
 
-### Prerequisites
-- Python 3.8 or higher
+### **Prerequisites**
+- Python 3.8+
 - OpenShift CLI (oc)
-- Access to an OpenShift cluster
+- OpenShift cluster access
+- cluster-admin privileges
 
-### Running Tests
+### **Project Structure**
+```
+rhoshift/
+├── rhoshift/
+│   ├── cli/              # Command-line interface
+│   ├── logger/           # Logging system
+│   ├── utils/
+│   │   ├── operator/     # Operator management
+│   │   ├── resilience.py # Error handling & recovery
+│   │   ├── health_monitor.py # Health monitoring
+│   │   ├── stability_coordinator.py # Stability management
+│   │   └── constants.py  # Operator configurations
+│   └── main.py          # Entry point
+├── scripts/
+│   ├── cleanup/         # Cleanup utilities
+│   └── run_upgrade_matrix.sh # Upgrade testing
+└── tests/               # Test suite
+```
+
+### **Running Tests**
 ```bash
 pytest tests/
 ```
 
-## 🔍 Troubleshooting
-
-### Common Issues
-1. **Operator Installation Fails**
-   - Check cluster access: `oc whoami`
-   - Verify operator catalog: `oc get catalogsource`
-   - Check logs: `tail -f /tmp/rhoshift.log`
-
-2. **Permission Issues**
-   - Ensure you have cluster-admin privileges
-   - Check namespace permissions
-
-3. **Timeout Errors**
-   - Increase timeout: `--timeout 900`
-   - Check cluster resources
-
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+2. Create a feature branch: `git checkout -b feature-name`
+3. Commit changes: `git commit -am 'Add feature'`
+4. Push to branch: `git push origin feature-name`
+5. Create Pull Request
+
+### **Development Guidelines**
+- Follow Python PEP 8 standards
+- Add tests for new features
+- Update documentation
+- Ensure backward compatibility
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details. 
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+
+## 🆘 Support
+
+- **Issues**: [GitHub Issues](https://github.com/mwaykole/O/issues)
+- **Documentation**: This README and `--help` output
+- **Logs**: `/tmp/rhoshift.log` for detailed debugging
+
+---
+
+**RHOShift** - Enterprise-grade OpenShift operator management with enhanced stability and reliability features.
