@@ -102,6 +102,15 @@ class OpenShiftOperatorInstallManifest:
             csv_name_prefix='custom-metrics-autoscaler',  # CSV uses shorter name prefix
             post_install_hook='create_keda_controller'
         ),
+        'opendatahub-operator': OperatorConfig(
+            name='opendatahub-operator',
+            display_name='Open Data Hub Operator',
+            namespace='openshift-operators',
+            channel='stable',
+            catalog_source=CatalogSource.COMMUNITY_OPERATORS,
+            install_mode=InstallMode.ALL_NAMESPACES,
+            create_namespace=False  # Uses existing openshift-operators
+        ),
     }
 
     @classmethod

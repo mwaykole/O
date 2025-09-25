@@ -7,12 +7,38 @@ import logging
 from typing import Dict, Any
 
 from rhoshift.utils.operator.operator import OpenShiftOperatorInstaller
+# Enhanced stability imports
+from rhoshift.utils.operator.enhanced_operator import EnhancedOpenShiftOperatorInstaller
+from rhoshift.utils.stability_coordinator import StabilityLevel
 
 logger = logging.getLogger(__name__)
 
 
 def install_operator(op_name: str, config: Dict[str, Any]) -> bool:
-    """Install a single operator with waiting and validation."""
+    """Install a single operator with enhanced stability features."""
+    
+    # 🛡️ Critical operators that benefit from enhanced stability
+    enhanced_operators = {
+        'keda': EnhancedOpenShiftOperatorInstaller.install_keda_operator_enhanced,
+        'rhoai': EnhancedOpenShiftOperatorInstaller.install_rhoai_operator_enhanced,
+        'serverless': EnhancedOpenShiftOperatorInstaller.install_serverless_operator_enhanced,
+    }
+    
+    # Use enhanced installer for critical operators  
+    stability_level = config.get('stability_level', StabilityLevel.ENHANCED)
+    if op_name in enhanced_operators and stability_level.value >= StabilityLevel.ENHANCED.value:
+        logger.info(f"🛡️  Using enhanced stability installer for {op_name}")
+        try:
+            rc, stdout, stderr = enhanced_operators[op_name](**config)
+            if rc == 0:
+                logger.info(f"✅ Enhanced installation of {op_name} completed successfully")
+                return True
+            else:
+                logger.error(f"❌ Enhanced installation of {op_name} failed: {stderr}")
+                return False
+        except Exception as e:
+            logger.error(f"❌ Enhanced installation of {op_name} failed with error: {e}")
+            return False
     
     # Get dynamic operator mapping from optimized constants
     def get_operator_map():
@@ -114,13 +140,24 @@ def install_operator(op_name: str, config: Dict[str, Any]) -> bool:
 
 
 def install_operators(selected_ops: Dict[str, bool], config: Dict[str, Any]) -> bool:
-    """Install multiple operators with batch validation and dependency resolution"""
+    """Install multiple operators with enhanced batch stability and dependency resolution"""
     # Get selected operator names
     selected_operator_names = [op_name for op_name, selected in selected_ops.items() if selected]
     
     if not selected_operator_names:
         logger.warning("No operators selected for installation")
         return True
+    
+    # 🛡️ Enhanced batch installation with stability features
+    stability_level = config.get('stability_level', StabilityLevel.ENHANCED)
+    if stability_level.value >= StabilityLevel.ENHANCED.value and len(selected_operator_names) > 1:
+        logger.info(f"🛡️  Using enhanced batch installation with {stability_level.name.lower()} stability")
+        try:
+            from rhoshift.utils.operator.enhanced_operator import install_operators_with_enhanced_stability
+            return install_operators_with_enhanced_stability(selected_ops, config)
+        except Exception as e:
+            logger.warning(f"⚠️  Enhanced batch installation failed, falling back to standard: {e}")
+            # Fall through to standard installation
     
     # Map CLI names to operator keys for validation
     from rhoshift.utils.constants import OpenShiftOperatorInstallManifest

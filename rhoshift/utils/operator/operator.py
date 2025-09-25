@@ -667,7 +667,33 @@ spec:
             **dsci_params
         )
 
-        apply_manifest(dsci)
+        # Wait for webhook certificates to be ready after operator installation
+        logger.info("Waiting for RHOAI webhook certificates to become valid...")
+        import time
+        time.sleep(30)  # Give webhook certificates time to become valid
+        
+        # Apply DSCI with retry logic for webhook certificate issues
+        max_attempts = 3
+        for attempt in range(1, max_attempts + 1):
+            try:
+                logger.info(f"Applying DSCI manifest (attempt {attempt}/{max_attempts})...")
+                apply_manifest(dsci)
+                logger.info("✅ DSCI manifest applied successfully")
+                break
+            except Exception as e:
+                error_msg = str(e)
+                if "certificate has expired or is not yet valid" in error_msg or "failed calling webhook" in error_msg:
+                    if attempt < max_attempts:
+                        wait_time = 30 * attempt  # Exponential backoff: 30s, 60s
+                        logger.warning(f"⚠️  Webhook certificate timing issue (attempt {attempt}). Waiting {wait_time}s before retry...")
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        logger.error(f"❌ DSCI creation failed after {max_attempts} attempts due to webhook certificate issues")
+                        raise
+                else:
+                    logger.error(f"❌ DSCI creation failed with unexpected error: {error_msg}")
+                    raise
         success, out, err = wait_for_resource_for_specific_status(
             status="Ready",
             cmd="oc get dsci/default-dsci -o jsonpath='{.status.phase}'",
@@ -684,12 +710,34 @@ spec:
         if channel == "odh-nightlies":
             dsc_params["operator_namespace"] = "opendatahub-operator"
 
-        # Deploy DataScienceCluster
-        apply_manifest(constants.get_dsc_manifest(
+        # Deploy DataScienceCluster with retry logic for webhook certificate issues
+        dsc_manifest = constants.get_dsc_manifest(
             enable_raw_serving=kserve_raw, 
             kueue_management_state=kueue_management_state,
             **dsc_params
-        ))
+        )
+        
+        max_attempts = 3
+        for attempt in range(1, max_attempts + 1):
+            try:
+                logger.info(f"Applying DSC manifest (attempt {attempt}/{max_attempts})...")
+                apply_manifest(dsc_manifest)
+                logger.info("✅ DSC manifest applied successfully")
+                break
+            except Exception as e:
+                error_msg = str(e)
+                if "certificate has expired or is not yet valid" in error_msg or "failed calling webhook" in error_msg:
+                    if attempt < max_attempts:
+                        wait_time = 30 * attempt  # Exponential backoff: 30s, 60s
+                        logger.warning(f"⚠️  Webhook certificate timing issue (attempt {attempt}). Waiting {wait_time}s before retry...")
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        logger.error(f"❌ DSC creation failed after {max_attempts} attempts due to webhook certificate issues")
+                        raise
+                else:
+                    logger.error(f"❌ DSC creation failed with unexpected error: {error_msg}")
+                    raise
         namespace = "opendatahub" if channel == "odh-nightlies" else "redhat-ods-applications"
 
         success, out, err = wait_for_resource_for_specific_status(
