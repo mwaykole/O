@@ -148,6 +148,23 @@ def install_operators(selected_ops: Dict[str, bool], config: Dict[str, Any]) -> 
         logger.warning("No operators selected for installation")
         return True
     
+    # 🔍 Validate DSCI compatibility for RHOAI installations
+    if selected_ops.get('rhoai', False):
+        try:
+            from rhoshift.utils.operator.enhanced_operator import EnhancedOpenShiftOperatorInstaller
+            dsci_compatible, dsci_warnings = EnhancedOpenShiftOperatorInstaller.validate_dsci_compatibility(
+                selected_ops, config
+            )
+            
+            if not dsci_compatible:
+                logger.error("❌ DSCI compatibility validation failed. Aborting installation.")
+                return False
+            
+            for warning in dsci_warnings:
+                logger.info(f"🔍 DSCI: {warning}")
+        except Exception as e:
+            logger.warning(f"⚠️  DSCI validation failed, continuing: {e}")
+    
     # 🛡️ Enhanced batch installation with stability features
     stability_level = config.get('stability_level', StabilityLevel.ENHANCED)
     if stability_level.value >= StabilityLevel.ENHANCED.value and len(selected_operator_names) > 1:

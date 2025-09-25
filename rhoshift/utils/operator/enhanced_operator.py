@@ -4,7 +4,7 @@ This shows how to integrate the robustness improvements into the existing operat
 """
 
 import logging
-from typing import Tuple, Dict, Any, Optional
+from typing import Tuple, Dict, Any, Optional, List
 
 from ..stability_coordinator import StabilityCoordinator, StabilityLevel, StabilityConfig
 from ..resilience import execute_resilient_operation
@@ -222,7 +222,11 @@ spec:
             result = enhanced_rhoai_installation(**rhoai_kwargs)
             return (0, "RHOAI operator with DSC/DSCI installed successfully", "")
         except Exception as e:
-            return (1, "", f"RHOAI installation failed: {str(e)}")
+            error_msg = str(e)
+            if "MonitoringNamespace is immutable" in error_msg:
+                return (1, "", f"RHOAI installation failed due to DSCI conflict: {error_msg}. Use --deploy-rhoai-resources to force recreate DSCI.")
+            else:
+                return (1, "", f"RHOAI installation failed: {error_msg}")
     
     def generate_installation_report(self) -> str:
         """Generate comprehensive installation report."""
@@ -241,6 +245,53 @@ spec:
         """
         from ..resilience import run_preflight_checks
         return run_preflight_checks(oc_binary)
+    
+    @classmethod
+    def validate_dsci_compatibility(cls, selected_ops: Dict[str, bool], config: Dict[str, Any]) -> Tuple[bool, List[str]]:
+        """
+        Validate DSCI compatibility before operator installation.
+        
+        Args:
+            selected_ops: Dictionary of selected operators
+            config: Configuration dictionary containing channel info
+            
+        Returns:
+            (compatible: bool, warnings: List[str])
+        """
+        warnings = []
+        
+        # Only check if RHOAI is being installed
+        if not selected_ops.get('rhoai', False):
+            return True, warnings
+        
+        from ..utils import run_command
+        
+        # Check if DSCI exists
+        existing_dsci_cmd = "oc get dsci default-dsci -o jsonpath='{.spec.monitoring.namespace}' 2>/dev/null || echo 'NOT_FOUND'"
+        rc, existing_monitoring_ns, _ = run_command(existing_dsci_cmd, log_output=False)
+        
+        if rc != 0 or existing_monitoring_ns.strip() == "NOT_FOUND":
+            # No existing DSCI, no conflict
+            return True, warnings
+        
+        existing_monitoring_ns = existing_monitoring_ns.strip()
+        
+        # Determine desired monitoring namespace based on channel
+        channel = config.get('rhoai_channel', 'stable')
+        desired_monitoring_ns = "opendatahub" if channel == "odh-nightlies" else "redhat-ods-monitoring"
+        
+        # Check for conflict
+        if existing_monitoring_ns != desired_monitoring_ns:
+            deploy_resources = config.get('create_dsc_dsci', False)
+            
+            if deploy_resources:
+                warnings.append(f"🔄 DSCI will be recreated: existing monitoring namespace '{existing_monitoring_ns}' → '{desired_monitoring_ns}' (channel: {channel})")
+            else:
+                warnings.append(f"⚠️  DSCI compatibility: existing monitoring namespace is '{existing_monitoring_ns}', channel '{channel}' prefers '{desired_monitoring_ns}'. Using existing configuration.")
+        else:
+            warnings.append(f"✅ DSCI compatible: monitoring namespace '{existing_monitoring_ns}' matches channel '{channel}'")
+        
+        return True, warnings
     
     @classmethod
     def check_operator_health_status(cls, operator_name: str, namespace: str, oc_binary: str = "oc") -> Tuple[HealthStatus, str]:
@@ -270,7 +321,7 @@ def install_operators_with_enhanced_stability(selected_ops: Dict[str, bool], con
     logger.info("🛡️  Installing operators with enhanced stability features...")
     
     # Validate cluster readiness first
-    cluster_ready, warnings = EnhancedOpenShiftOperatorInstaller.validate_cluster_readiness(
+    cluster_ready, cluster_warnings = EnhancedOpenShiftOperatorInstaller.validate_cluster_readiness(
         config.get('oc_binary', 'oc')
     )
     
@@ -278,8 +329,20 @@ def install_operators_with_enhanced_stability(selected_ops: Dict[str, bool], con
         logger.error("❌ Cluster validation failed. Aborting installation.")
         return False
     
-    for warning in warnings:
+    for warning in cluster_warnings:
         logger.warning(f"⚠️  {warning}")
+    
+    # Validate DSCI compatibility for RHOAI installations
+    dsci_compatible, dsci_warnings = EnhancedOpenShiftOperatorInstaller.validate_dsci_compatibility(
+        selected_ops, config
+    )
+    
+    if not dsci_compatible:
+        logger.error("❌ DSCI compatibility validation failed. Aborting installation.")
+        return False
+    
+    for warning in dsci_warnings:
+        logger.info(f"🔍 DSCI: {warning}")
     
     # Create enhanced installer
     installer = EnhancedOpenShiftOperatorInstaller(

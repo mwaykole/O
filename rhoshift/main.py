@@ -75,7 +75,7 @@ def main() -> Optional[int]:
             'cert-manager': getattr(args, 'cert_manager', False) or args.all,
             'kueue': bool(args.kueue) or args.all,  # Convert to boolean for operator selection
             'keda': args.keda or args.all,
-            'rhoai': args.rhoai,
+            'rhoai': args.rhoai or args.all,  # Include RHOAI in --all
         }
 
         if not any(selected_ops.values()) and not args.cleanup:

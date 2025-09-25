@@ -57,6 +57,7 @@ RHOShift includes a comprehensive stability system designed for enterprise deplo
 - ✅ Resource quota validation
 - ✅ Operator catalog accessibility
 - ✅ Namespace conflict detection
+- ✅ DSCI compatibility validation for RHOAI installations
 
 ### **Health Monitoring**
 - 📊 Real-time operator status tracking
@@ -110,8 +111,11 @@ rhoshift --serverless --servicemesh --authorino
 # Install with dependency resolution (Kueue + cert-manager)
 rhoshift --kueue
 
-# Install all operators
+# Install all operators (includes DSCI validation for RHOAI)
 rhoshift --all
+
+# Install all with RHOAI channel preference
+rhoshift --all --rhoai-channel=odh-nightlies
 
 # Show detailed operator summary
 rhoshift --summary
@@ -315,6 +319,21 @@ oc get pods -n opendatahub-operators
 
 # Manual DSC creation
 rhoshift --rhoai --deploy-rhoai-resources --timeout=900
+```
+
+#### **DSCI Immutable Field Conflicts**
+```bash
+# Error: MonitoringNamespace is immutable
+# This happens when existing DSCI has different monitoring namespace
+
+# Check existing DSCI configuration
+oc get dsci default-dsci -o yaml
+
+# Solution 1: Force recreate DSCI (recommended)
+rhoshift --rhoai --deploy-rhoai-resources
+
+# Solution 2: Use existing DSCI configuration
+# RHOShift will automatically detect and adapt to existing DSCI
 ```
 
 ### **Debug Mode**

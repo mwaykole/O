@@ -658,42 +658,78 @@ spec:
                 logger.info(f"{cmd_name}: {cmd_result['status']}")
                 if cmd_result['status'] != 'success':
                     logger.error(f" {cmd_result.get('stderr', cmd_result.get('error', ''))}")
+        # Check if DSCI already exists and handle conflicts
+        existing_dsci_cmd = "oc get dsci default-dsci -o jsonpath='{.spec.monitoring.namespace}' 2>/dev/null || echo 'NOT_FOUND'"
+        rc, existing_monitoring_ns, _ = run_command(existing_dsci_cmd, log_output=False)
+        
         dsci_params = {}
+        desired_monitoring_ns = "redhat-ods-monitoring"  # Default value
         if channel == "odh-nightlies":
             dsci_params["applications_namespace"] = "opendatahub"
             dsci_params["monitoring_namespace"] = "opendatahub"
-        dsci = constants.get_dsci_manifest(
-            kserve_raw=kserve_raw,
-            **dsci_params
-        )
-
-        # Wait for webhook certificates to be ready after operator installation
-        logger.info("Waiting for RHOAI webhook certificates to become valid...")
-        import time
-        time.sleep(30)  # Give webhook certificates time to become valid
+            desired_monitoring_ns = "opendatahub"
         
-        # Apply DSCI with retry logic for webhook certificate issues
-        max_attempts = 3
-        for attempt in range(1, max_attempts + 1):
-            try:
-                logger.info(f"Applying DSCI manifest (attempt {attempt}/{max_attempts})...")
-                apply_manifest(dsci)
-                logger.info("✅ DSCI manifest applied successfully")
-                break
-            except Exception as e:
-                error_msg = str(e)
-                if "certificate has expired or is not yet valid" in error_msg or "failed calling webhook" in error_msg:
-                    if attempt < max_attempts:
-                        wait_time = 30 * attempt  # Exponential backoff: 30s, 60s
-                        logger.warning(f"⚠️  Webhook certificate timing issue (attempt {attempt}). Waiting {wait_time}s before retry...")
-                        time.sleep(wait_time)
-                        continue
-                    else:
-                        logger.error(f"❌ DSCI creation failed after {max_attempts} attempts due to webhook certificate issues")
-                        raise
+        # Handle existing DSCI conflicts
+        if rc == 0 and existing_monitoring_ns.strip() != "NOT_FOUND":
+            existing_monitoring_ns = existing_monitoring_ns.strip()
+            if existing_monitoring_ns != desired_monitoring_ns:
+                logger.warning(f"⚠️  DSCI conflict detected: existing monitoring namespace is '{existing_monitoring_ns}', but '{desired_monitoring_ns}' is required for channel '{channel}'")
+                
+                if create_dsc_dsci:
+                    logger.info("🔄 Recreating DSCI with correct configuration since create_dsc_dsci=True...")
+                    # Force delete will be handled above in the create_dsc_dsci block
                 else:
-                    logger.error(f"❌ DSCI creation failed with unexpected error: {error_msg}")
-                    raise
+                    logger.info(f"ℹ️  Using existing DSCI with monitoring namespace '{existing_monitoring_ns}' (channel '{channel}' requested '{desired_monitoring_ns}')")
+                    # Use the existing configuration to avoid conflicts
+                    if existing_monitoring_ns == "opendatahub":
+                        dsci_params["applications_namespace"] = "opendatahub"
+                        dsci_params["monitoring_namespace"] = "opendatahub"
+                    else:
+                        # Use defaults for redhat-ods-monitoring
+                        dsci_params = {}
+        
+        # Only apply DSCI if it doesn't exist or if we're creating new resources
+        should_apply_dsci = (existing_monitoring_ns.strip() == "NOT_FOUND") or create_dsc_dsci
+        
+        if should_apply_dsci:
+            dsci = constants.get_dsci_manifest(
+                kserve_raw=kserve_raw,
+                **dsci_params
+            )
+
+            # Wait for webhook certificates to be ready after operator installation
+            logger.info("Waiting for RHOAI webhook certificates to become valid...")
+            import time
+            time.sleep(30)  # Give webhook certificates time to become valid
+            
+            # Apply DSCI with retry logic for webhook certificate issues
+            max_attempts = 3
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    logger.info(f"Applying DSCI manifest (attempt {attempt}/{max_attempts})...")
+                    apply_manifest(dsci)
+                    logger.info("✅ DSCI manifest applied successfully")
+                    break
+                except Exception as e:
+                    error_msg = str(e)
+                    if "certificate has expired or is not yet valid" in error_msg or "failed calling webhook" in error_msg:
+                        if attempt < max_attempts:
+                            wait_time = 30 * attempt  # Exponential backoff: 30s, 60s
+                            logger.warning(f"⚠️  Webhook certificate timing issue (attempt {attempt}). Waiting {wait_time}s before retry...")
+                            time.sleep(wait_time)
+                            continue
+                        else:
+                            logger.error(f"❌ DSCI creation failed after {max_attempts} attempts due to webhook certificate issues")
+                            raise
+                    elif "MonitoringNamespace is immutable" in error_msg or "immutable" in error_msg:
+                        logger.error(f"❌ DSCI immutable field conflict: {error_msg}")
+                        logger.info("💡 Suggestion: Use --deploy-rhoai-resources to force recreate DSCI with correct configuration")
+                        raise
+                    else:
+                        logger.error(f"❌ DSCI creation failed with unexpected error: {error_msg}")
+                        raise
+        else:
+            logger.info(f"ℹ️  Using existing DSCI (monitoring namespace: {existing_monitoring_ns})")
         success, out, err = wait_for_resource_for_specific_status(
             status="Ready",
             cmd="oc get dsci/default-dsci -o jsonpath='{.status.phase}'",
