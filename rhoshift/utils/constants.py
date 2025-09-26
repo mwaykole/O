@@ -40,16 +40,12 @@ class OperatorConfig:
 class OpenShiftOperatorInstallManifest:
     """Optimized operator manifest generator with reduced duplication."""
     
-    # Common configuration
     MARKETPLACE_NAMESPACE = "openshift-marketplace"
     
-    # Operator dependencies - operators that must be installed before others
     DEPENDENCIES = {
         'kueue-operator': ['openshift-cert-manager-operator'],  # Kueue requires cert-manager
-        # Future dependencies can be added here
     }
     
-    # Operator configurations
     OPERATORS = {
         'serverless-operator': OperatorConfig(
             name='serverless-operator',
@@ -136,7 +132,6 @@ class OpenShiftOperatorInstallManifest:
             }
         }
         
-        # Configure spec based on install mode
         if config.install_mode == InstallMode.ALL_NAMESPACES:
             manifest['spec'] = {}  # Empty spec = all namespaces
         elif config.install_mode == InstallMode.OWN_NAMESPACE:
@@ -144,7 +139,6 @@ class OpenShiftOperatorInstallManifest:
                 'targetNamespaces': [config.namespace]
             }
         else:
-            # For single/multi namespace, customize as needed
             manifest['spec'] = {
                 'targetNamespaces': [config.namespace]
             }
@@ -175,12 +169,9 @@ class OpenShiftOperatorInstallManifest:
                 og_name = items[0].get('metadata', {}).get('name', '')
                 return True, og_name  # One operator group exists
             else:
-                # Multiple operator groups - this is normal for shared namespaces
                 if namespace in ['openshift-operators']:
-                    # For shared namespaces, multiple operator groups are expected
                     return True, "shared_namespace_multiple_groups"
                 else:
-                    # For dedicated namespaces, multiple operator groups indicate a problem
                     og_names = [item.get('metadata', {}).get('name', '') for item in items]
                     return True, f"Multiple operator groups found: {', '.join(og_names)}"
                 

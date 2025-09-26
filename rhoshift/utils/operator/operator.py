@@ -31,7 +31,6 @@ class OpenShiftOperatorInstaller:
     operators with proper error handling and status verification.
     """
 
-    # Use optimized operator configurations
     @classmethod
     def get_operator_configs(cls, oc_binary: str = "oc"):
         """Get operator configurations from optimized constants."""
@@ -58,14 +57,12 @@ class OpenShiftOperatorInstaller:
         """Install an OpenShift operator by name with validation."""
         oc_binary = kwargs.get('oc_binary', 'oc')
         
-        # Get configurations using optimized approach
         configs = cls.get_operator_configs(oc_binary)
         
         if operator_name not in configs:
             available = ', '.join(OpenShiftOperatorInstallManifest.list_operators())
             raise ValueError(f"Unknown operator: {operator_name}. Available: {available}")
         
-        # Add validation for single operator installation
         warnings = OpenShiftOperatorInstallManifest.validate_operator_compatibility([operator_name])
         for warning in warnings:
             logger.warning(f"⚠️  {warning}")
@@ -73,12 +70,10 @@ class OpenShiftOperatorInstaller:
         config = configs[operator_name]
         logger.info(f"Installing {config['display_name']}...")
         
-        # Use special timeout for cert-manager as it can take longer
         if operator_name == 'openshift-cert-manager-operator':
             kwargs.setdefault('timeout', WaitTime.WAIT_TIME_10_MIN)  # 10 minutes for cert-manager
             logger.info(f"Using extended timeout for cert-manager operator: {kwargs['timeout']} seconds")
         
-        # Use the dynamically generated manifest
         return cls._install_operator(operator_name, config['manifest'], **kwargs)
 
     @classmethod
@@ -112,11 +107,9 @@ class OpenShiftOperatorInstaller:
         logger.info("Installing KEDA (Custom Metrics Autoscaler) Operator...")
         result = cls.install_operator('openshift-custom-metrics-autoscaler-operator', **kwargs)
         
-        # After successful installation, create the KedaController resource
         if result[0] == 0:
             logger.info("Operator installed successfully. Creating KedaController resource...")
             
-            # Enhanced KedaController manifest with admission webhooks
             keda_controller_manifest = """apiVersion: keda.sh/v1alpha1
 kind: KedaController
 metadata:
@@ -148,11 +141,9 @@ spec:
                 if rc == 0:
                     logger.info("✅ KedaController resource created successfully")
                     
-                    # Wait for KEDA to be ready
                     logger.info("Waiting for KEDA to become ready...")
                     keda_ready_cmd = f"{oc_binary} get kedacontroller keda -n openshift-keda -o jsonpath='{{.status.phase}}'"
                     
-                    # Wait up to 2 minutes for KEDA to be ready
                     import time
                     end_time = time.time() + 120
                     while time.time() < end_time:
@@ -171,7 +162,6 @@ spec:
                         
                 else:
                     logger.error(f"❌ Failed to create KedaController resource: {stderr}")
-                    # Don't fail the installation if KedaController creation fails
                     logger.warning("You can manually create the KedaController later if needed")
                     
             except Exception as e:
@@ -207,7 +197,6 @@ spec:
         Raises:
             RuntimeError: If required parameters are missing or installation fails
         """
-        # Validate required parameters
         required_params = ['rhoai_channel', 'rhoai_image', 'raw', 'create_dsc_dsci']
         for param in required_params:
             if param not in kwargs:
@@ -225,7 +214,6 @@ spec:
         results = {}
 
         try:
-            # Clone the olminstall repository
             clone_cmd = (
                 f"git clone https://gitlab.cee.redhat.com/data-hub/olminstall.git {temp_dir} && "
                 f"cd {temp_dir}"
@@ -240,7 +228,6 @@ spec:
             if rc != 0:
                 raise RuntimeError(f"Failed to clone olminstall repo: {stderr}")
 
-            # Run the setup script
             extra_params = " -n rhods-operator -p opendatahub-operators" if channel == "odh-nightlies" else ""
             install_cmd = (
                 f"cd {temp_dir} && "
@@ -260,7 +247,6 @@ spec:
             namespace = "opendatahub-operators" if channel == "odh-nightlies" else "redhat-ods-operator"
             operator_name = "opendatahub-operator.1.18.0" if channel == "odh-nightlies" else "rhods-operator"
             # namespace = "redhat-ods-operator"
-            # Wait for the operator to be ready
             results = cls.wait_for_operator(
                 operator_name=operator_name,
                 namespace=namespace,
@@ -274,13 +260,11 @@ spec:
             logger.info("✅ RHOAI Operator installed successfully")
             
             if create_dsc_dsci:
-                # Wait for webhook certificates to become valid before attempting DSC/DSCI operations
                 logger.info("⏳ Waiting for RHOAI webhook certificates to become valid...")
                 webhook_wait_time = 60  # Wait 60 seconds for certificates to become valid
                 logger.info(f"⏱️  Waiting {webhook_wait_time} seconds for webhook certificates...")
                 time.sleep(webhook_wait_time)
                 
-                # create new dsc and dsci
                 cls.deploy_dsc_dsci(
                     kserve_raw=is_Raw, 
                     channel=channel,
@@ -299,7 +283,6 @@ spec:
             return results
 
         finally:
-            # Clean up temporary directory
             try:
                 if os.path.exists(temp_dir):
                     run_command(f"rm -rf {temp_dir}", log_output=False)
@@ -342,7 +325,6 @@ spec:
     ) -> Tuple[bool, Optional[str]]:
         """Check both CSV and Deployment status for an operator."""
         try:
-            # Check for OLM conflicts first (but skip for shared namespaces)
             if namespace not in ['openshift-operators']:  # Skip conflict check for shared namespaces
                 og_cmd = f"{oc_binary} get operatorgroup -n {namespace}"
                 rc, stdout, stderr = run_command(og_cmd, log_output=False)
@@ -351,7 +333,6 @@ spec:
                     if len(lines) > 2:  # More than header + 1 operator group
                         return False, f"Multiple OperatorGroups detected in namespace {namespace}. This prevents CSV creation."
             
-            # Check subscription status for issues
             sub_cmd = f"{oc_binary} get subscription -n {namespace} -o json"
             rc, stdout, stderr = run_command(sub_cmd, log_output=False)
             if rc == 0:
@@ -363,22 +344,18 @@ spec:
                         if condition.get('status') == 'True' and 'Error' in condition.get('type', ''):
                             return False, f"Subscription error: {condition.get('message', 'Unknown error')}"
             
-            # Check CSV status in the correct namespace using improved logic
             from ..constants import OpenShiftOperatorInstallManifest
             operator_config = None
             try:
                 operator_config = OpenShiftOperatorInstallManifest.get_operator_config(operator_name)
             except ValueError:
-                # Fallback for non-configured operators like RHOAI
                 pass
                 
-            # Use csv_name_prefix if available, otherwise use operator name
             if operator_config and operator_config.csv_name_prefix:
                 csv_search_pattern = operator_config.csv_name_prefix
             else:
                 csv_search_pattern = operator_name
             
-            # Check for CSV with better pattern matching
             csv_cmd = f"{oc_binary} get csv -n {namespace} -o json"
             rc, stdout, stderr = run_command(csv_cmd, log_output=False)
             
@@ -392,7 +369,6 @@ spec:
                 
                 for csv in csvs.get('items', []):
                     csv_name = csv.get('metadata', {}).get('name', '')
-                    # Match CSV names that start with our pattern
                     if csv_name.startswith(csv_search_pattern):
                         phase = csv.get('status', {}).get('phase', '')
                         matching_csvs.append((csv_name, phase))
@@ -400,7 +376,6 @@ spec:
                 if not matching_csvs:
                     return False, f"No CSV found matching pattern '{csv_search_pattern}' in namespace {namespace}"
                 
-                # Check if any matching CSV is in Succeeded state
                 succeeded_csvs = [csv for csv, phase in matching_csvs if phase == "Succeeded"]
                 if succeeded_csvs:
                     logger.debug(f"Found succeeded CSV: {succeeded_csvs[0]}")

@@ -7,7 +7,6 @@ import logging
 from typing import Dict, Any
 
 from rhoshift.utils.operator.operator import OpenShiftOperatorInstaller
-# Enhanced stability imports
 from rhoshift.utils.operator.enhanced_operator import EnhancedOpenShiftOperatorInstaller
 from rhoshift.utils.stability_coordinator import StabilityLevel
 
@@ -17,14 +16,13 @@ logger = logging.getLogger(__name__)
 def install_operator(op_name: str, config: Dict[str, Any]) -> bool:
     """Install a single operator with enhanced stability features."""
     
-    # 🛡️ Critical operators that benefit from enhanced stability
+    # Critical operators that benefit from enhanced stability
     enhanced_operators = {
         'keda': EnhancedOpenShiftOperatorInstaller.install_keda_operator_enhanced,
         'rhoai': EnhancedOpenShiftOperatorInstaller.install_rhoai_operator_enhanced,
         'serverless': EnhancedOpenShiftOperatorInstaller.install_serverless_operator_enhanced,
     }
     
-    # Use enhanced installer for critical operators  
     stability_level = config.get('stability_level', StabilityLevel.ENHANCED)
     if op_name in enhanced_operators and stability_level.value >= StabilityLevel.ENHANCED.value:
         logger.info(f"🛡️  Using enhanced stability installer for {op_name}")
@@ -40,13 +38,11 @@ def install_operator(op_name: str, config: Dict[str, Any]) -> bool:
             logger.error(f"❌ Enhanced installation of {op_name} failed with error: {e}")
             return False
     
-    # Get dynamic operator mapping from optimized constants
     def get_operator_map():
         from rhoshift.utils.constants import OpenShiftOperatorInstallManifest
         
         operator_map = {}
         
-        # Map from CLI names to operator keys and method names
         cli_to_operator_config = {
             'serverless': ('serverless-operator', 'install_serverless_operator'),
             'servicemesh': ('servicemeshoperator', 'install_service_mesh_operator'), 
@@ -56,12 +52,10 @@ def install_operator(op_name: str, config: Dict[str, Any]) -> bool:
             'keda': ('openshift-custom-metrics-autoscaler-operator', 'install_keda_operator')
         }
         
-        # Build dynamic operator map
         for cli_name, (op_key, method_name) in cli_to_operator_config.items():
             try:
                 op_config = OpenShiftOperatorInstallManifest.get_operator_config(op_key)
                 
-                # Define display icons
                 icons = {
                     'serverless': '🚀',
                     'servicemesh': '🛡️',
@@ -86,14 +80,13 @@ def install_operator(op_name: str, config: Dict[str, Any]) -> bool:
     
     operator_map = get_operator_map()
     
-    # Add validation for single operator
     if op_name in operator_map:
         from rhoshift.utils.constants import OpenShiftOperatorInstallManifest
         warnings = OpenShiftOperatorInstallManifest.validate_operator_compatibility([operator_map[op_name]['op_key']])
         for warning in warnings:
             logger.warning(f"⚠️  {warning}")
     
-    # Special handling for RHOAI (different pattern) - use enhanced installer
+    # Special handling for RHOAI
     operator_map['rhoai'] = {
         'installer': OpenShiftOperatorInstaller.install_rhoai_operator_enhanced,
         'channel': config.get("rhoai_channel"),
@@ -112,9 +105,7 @@ def install_operator(op_name: str, config: Dict[str, Any]) -> bool:
     logger.info(f"{info['display']} installation started...")
 
     try:
-        # Install the operator
         info['installer'](**config)
-        # Wait for installation
         results = OpenShiftOperatorInstaller.wait_for_operator(
             operator_name=info['csv_name'],
             namespace=info['namespace'],
@@ -142,14 +133,13 @@ def install_operator(op_name: str, config: Dict[str, Any]) -> bool:
 
 def install_operators(selected_ops: Dict[str, bool], config: Dict[str, Any]) -> bool:
     """Install multiple operators with enhanced batch stability and dependency resolution"""
-    # Get selected operator names
     selected_operator_names = [op_name for op_name, selected in selected_ops.items() if selected]
     
     if not selected_operator_names:
         logger.warning("No operators selected for installation")
         return True
     
-    # 🔍 Validate DSCI compatibility for RHOAI installations
+    # Validate DSCI compatibility for RHOAI installations
     if selected_ops.get('rhoai', False):
         try:
             from rhoshift.utils.operator.enhanced_operator import EnhancedOpenShiftOperatorInstaller
@@ -166,7 +156,6 @@ def install_operators(selected_ops: Dict[str, bool], config: Dict[str, Any]) -> 
         except Exception as e:
             logger.warning(f"⚠️  DSCI validation failed, continuing: {e}")
     
-    # 🛡️ Enhanced batch installation with stability features
     stability_level = config.get('stability_level', StabilityLevel.ENHANCED)
     if stability_level.value >= StabilityLevel.ENHANCED.value and len(selected_operator_names) > 1:
         logger.info(f"🛡️  Using enhanced batch installation with {stability_level.name.lower()} stability")
@@ -175,9 +164,7 @@ def install_operators(selected_ops: Dict[str, bool], config: Dict[str, Any]) -> 
             return install_operators_with_enhanced_stability(selected_ops, config)
         except Exception as e:
             logger.warning(f"⚠️  Enhanced batch installation failed, falling back to standard: {e}")
-            # Fall through to standard installation
     
-    # Map CLI names to operator keys for validation
     from rhoshift.utils.constants import OpenShiftOperatorInstallManifest
     
     cli_to_operator_key = {
@@ -189,13 +176,11 @@ def install_operators(selected_ops: Dict[str, bool], config: Dict[str, Any]) -> 
         'keda': 'openshift-custom-metrics-autoscaler-operator'
     }
     
-    # Get operator keys for validation (exclude RHOAI as it has different pattern)
     operator_keys = []
     for op_name in selected_operator_names:
         if op_name in cli_to_operator_key:
             operator_keys.append(cli_to_operator_key[op_name])
     
-    # Validate batch compatibility and resolve dependencies
     if operator_keys:
         warnings = OpenShiftOperatorInstallManifest.validate_operator_compatibility(operator_keys)
         if warnings:
@@ -203,10 +188,8 @@ def install_operators(selected_ops: Dict[str, bool], config: Dict[str, Any]) -> 
             for warning in warnings:
                 logger.warning(f"   - {warning}")
         
-        # Resolve dependencies and get installation order
         resolved_order = OpenShiftOperatorInstallManifest.resolve_dependencies(operator_keys)
         
-        # Add any missing dependencies to selected_ops
         reverse_cli_map = {v: k for k, v in cli_to_operator_key.items()}
         for op_key in resolved_order:
             if op_key in reverse_cli_map:
@@ -216,13 +199,11 @@ def install_operators(selected_ops: Dict[str, bool], config: Dict[str, Any]) -> 
                     selected_ops[cli_name] = True
                     selected_operator_names.append(cli_name)
         
-        # Create ordered installation list
         ordered_cli_names = []
         for op_key in resolved_order:
             if op_key in reverse_cli_map:
                 ordered_cli_names.append(reverse_cli_map[op_key])
         
-        # Add RHOAI at the end if selected (special case)
         if selected_ops.get('rhoai', False):
             ordered_cli_names.append('rhoai')
     else:

@@ -70,8 +70,8 @@ def build_config(args: argparse.Namespace) -> Dict[str, Any]:
         'rhoai_image': args.rhoai_image,
         'rhoai_channel': args.rhoai_channel,
         'raw': args.raw,
-        'create_dsc_dsci': args.deploy_rhoai_resources,  # Map deploy-rhoai-resources flag
-        'kueue_management_state': args.kueue if args.kueue else None,  # Map Kueue management state
+        'create_dsc_dsci': args.deploy_rhoai_resources,
+        'kueue_management_state': args.kueue if args.kueue else None,
     }
 
 
@@ -92,7 +92,7 @@ def select_operators(args: argparse.Namespace) -> Dict[str, bool]:
         'serverless': args.serverless,
         'servicemesh': args.servicemesh,
         'authorino': args.authorino,
-        'cert-manager': getattr(args, 'cert_manager', False),  # Handle hyphen to underscore conversion
+        'cert-manager': getattr(args, 'cert_manager', False),
         'rhoai': args.rhoai,
         'kueue': args.kueue,
         'keda': args.keda

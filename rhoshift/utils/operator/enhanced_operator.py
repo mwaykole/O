@@ -48,10 +48,8 @@ class EnhancedOpenShiftOperatorInstaller(OpenShiftOperatorInstaller):
         - Auto-recovery capabilities
         """
         
-        # Create enhanced installer instance
         installer = cls(stability_level, kwargs.get('oc_binary', 'oc'))
         
-        # Extract namespace for operator
         from ..constants import OpenShiftOperatorInstallManifest
         manifest_gen = OpenShiftOperatorInstallManifest()
         
@@ -60,7 +58,6 @@ class EnhancedOpenShiftOperatorInstaller(OpenShiftOperatorInstaller):
         else:
             namespace = "openshift-operators"  # Default namespace
         
-        # Use stability coordinator to install
         success, results = installer.coordinator.install_operator_with_stability(
             operator_name=operator_name,
             namespace=namespace,
@@ -68,7 +65,6 @@ class EnhancedOpenShiftOperatorInstaller(OpenShiftOperatorInstaller):
             **kwargs
         )
         
-        # Convert results back to expected format
         if success:
             return 0, f"Successfully installed {operator_name}", ""
         else:
@@ -87,13 +83,11 @@ class EnhancedOpenShiftOperatorInstaller(OpenShiftOperatorInstaller):
         def enhanced_keda_installation(**install_kwargs):
             """Enhanced KEDA installation with KedaController creation."""
             
-            # Install the operator first
             result = cls.install_operator('openshift-custom-metrics-autoscaler-operator', **install_kwargs)
             
             if result[0] != 0:
                 return result
             
-            # Create KedaController with resilience
             logger.info("Creating KedaController resource with enhanced error handling...")
             
             keda_controller_manifest = """apiVersion: keda.sh/v1alpha1
@@ -124,7 +118,6 @@ spec:
                     timeout=WaitTime.WAIT_TIME_5_MIN
                 )
             
-            # Use resilient operation for KedaController creation
             success, controller_result, warnings = execute_resilient_operation(
                 create_keda_controller,
                 "KedaController creation",
@@ -135,7 +128,6 @@ spec:
             if success:
                 logger.info("✅ KedaController created successfully with enhanced resilience")
                 
-                # Wait for KEDA readiness with health monitoring
                 logger.info("Monitoring KEDA controller readiness...")
                 keda_ready = cls._wait_for_keda_readiness(install_kwargs.get('oc_binary', 'oc'))
                 

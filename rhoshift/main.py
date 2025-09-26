@@ -7,8 +7,6 @@ from rhoshift.cli.commands import install_operator, install_operators
 from rhoshift.logger.logger import Logger
 from typing import Optional
 import pyfiglet
-
-# Enhanced stability imports
 from rhoshift.utils.resilience import run_preflight_checks
 from rhoshift.utils.stability_coordinator import StabilityLevel
 
@@ -34,7 +32,7 @@ def main() -> Optional[int]:
         if args.cleanup:
             cleanup()
 
-        # 🛡️ Pre-flight validation for cluster readiness
+        # Pre-flight validation for cluster readiness
         if not args.cleanup and any([args.serverless, args.servicemesh, args.authorino, 
                                    getattr(args, 'cert_manager', False), args.kueue, 
                                    args.keda, args.rhoai, args.all]):
@@ -60,9 +58,8 @@ def main() -> Optional[int]:
             'rhoai_channel': args.rhoai_channel,
             'raw': args.raw,
             'create_dsc_dsci': args.deploy_rhoai_resources,
-            'kueue_management_state': args.kueue if args.kueue else ('Unmanaged' if args.all else None),  # Pass the management state
-            # 🛡️ Enhanced stability configuration
-            'stability_level': StabilityLevel.ENHANCED,  # Use enhanced stability by default
+            'kueue_management_state': args.kueue if args.kueue else ('Unmanaged' if args.all else None),
+            'stability_level': StabilityLevel.ENHANCED,
             'enable_health_monitoring': True,
             'enable_auto_recovery': True,
         }
@@ -73,31 +70,28 @@ def main() -> Optional[int]:
             'servicemesh': args.servicemesh or args.all,
             'authorino': args.authorino or args.all,
             'cert-manager': getattr(args, 'cert_manager', False) or args.all,
-            'kueue': args.kueue if args.kueue else (True if args.all else False),  # Preserve management state value
+            'kueue': args.kueue if args.kueue else (True if args.all else False),
             'keda': args.keda or args.all,
-            'rhoai': args.rhoai or args.all,  # Include RHOAI in --all
+            'rhoai': args.rhoai or args.all,
         }
 
         if not any(selected_ops.values()) and not args.cleanup:
             logger.error("No operators selected. Use --help for usage information.")
             return 1
 
-        # Count how many operators were selected
-        selected_count = sum(selected_ops.values())
+        selected_count = sum(1 for value in selected_ops.values() if value and value != False)
 
-        # 🚀 Enhanced installation with stability features
+        # Enhanced installation with stability features
         installation_start_time = None
         try:
             import time
             installation_start_time = time.time()
             
             if selected_count == 1:
-                # Single operator installation with enhanced features
                 op_name = next(name for name, selected in selected_ops.items() if selected)
                 logger.info(f"🚀 Installing {op_name} with enhanced stability features...")
                 success = install_operator(op_name, config)
             else:
-                # Multiple operators installation with batch stability
                 logger.info(config)
                 logger.info(f"🚀 Installing {selected_count} operators with enhanced stability...")
                 success = install_operators(selected_ops, config)
@@ -108,12 +102,10 @@ def main() -> Optional[int]:
                 logger.info("🎉 Operator installation completed successfully!")
                 logger.info(f"⏱️  Total installation time: {installation_time:.1f} seconds")
                 
-                # Optional: Run post-installation health summary
                 if config.get('enable_health_monitoring', False):
                     logger.info("🏥 Running post-installation health checks...")
                     try:
                         from rhoshift.utils.health_monitor import check_operator_health, generate_health_report
-                        # This could be expanded to check all installed operators
                         logger.info("✅ Post-installation health checks completed")
                     except Exception as health_error:
                         logger.warning(f"⚠️  Post-installation health check failed: {health_error}")
