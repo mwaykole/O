@@ -1,9 +1,9 @@
-import logging
-import sys
-import os
 from functools import wraps
-from typing import Optional, Callable, Any
+import logging
+import os
 from pathlib import Path
+import sys
+from typing import Any, Callable, Optional
 
 
 class Logger:
@@ -57,42 +57,45 @@ class Logger:
         """Create log formatter with optional color support."""
         try:
             from colorlog import ColoredFormatter
+
             return ColoredFormatter(
-                '%(log_color)s%(asctime)s | %(levelname)-8s | %(name)s | %(message)s',
-                datefmt='%Y-%m-%d %H:%M:%S',
+                "%(log_color)s%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S",
                 reset=True,
                 log_colors={
-                    'DEBUG': 'cyan',
-                    'INFO': 'green',
-                    'WARNING': 'yellow',
-                    'ERROR': 'red',
-                    'CRITICAL': 'red,bg_white',
-                }
+                    "DEBUG": "cyan",
+                    "INFO": "green",
+                    "WARNING": "yellow",
+                    "ERROR": "red",
+                    "CRITICAL": "red,bg_white",
+                },
             )
         except ImportError:
             return logging.Formatter(
-                '%(asctime)s | %(levelname)-8s | %(name)s | %(message)s',
-                datefmt='%Y-%m-%d %H:%M:%S'
+                "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S",
             )
 
     @classmethod
-    def _create_file_handler(cls, log_path: Path, formatter: logging.Formatter) -> logging.Handler:
+    def _create_file_handler(
+        cls, log_path: Path, formatter: logging.Formatter
+    ) -> logging.Handler:
         """Create configured file handler with rotation."""
         try:
             from logging.handlers import RotatingFileHandler
+
             handler = RotatingFileHandler(
                 filename=str(log_path),  # Convert Path to string
                 maxBytes=cls._max_log_size,
                 backupCount=cls._backup_count,
-                encoding='utf-8'
+                encoding="utf-8",
             )
         except ImportError:
             handler = logging.FileHandler(
-                filename=str(log_path),  # Convert Path to string
-                encoding='utf-8'
+                filename=str(log_path), encoding="utf-8"  # Convert Path to string
             )
 
-        handler.setLevel(os.getenv('LOG_FILE_LEVEL', 'DEBUG'))
+        handler.setLevel(os.getenv("LOG_FILE_LEVEL", "DEBUG"))
         handler.setFormatter(formatter)
         return handler
 
@@ -100,18 +103,18 @@ class Logger:
     def _create_console_handler(cls, formatter: logging.Formatter) -> logging.Handler:
         """Create configured console handler."""
         handler = logging.StreamHandler(sys.stdout)
-        handler.setLevel(os.getenv('LOG_CONSOLE_LEVEL', 'INFO'))
+        handler.setLevel(os.getenv("LOG_CONSOLE_LEVEL", "INFO"))
         handler.setFormatter(formatter)
         return handler
 
     @classmethod
     def configure(
-            cls,
-            default_log_file: Optional[str] = None,
-            max_log_size: Optional[int] = None,
-            backup_count: Optional[int] = None,
-            console_level: Optional[str] = None,
-            file_level: Optional[str] = None
+        cls,
+        default_log_file: Optional[str] = None,
+        max_log_size: Optional[int] = None,
+        backup_count: Optional[int] = None,
+        console_level: Optional[str] = None,
+        file_level: Optional[str] = None,
     ) -> None:
         """Configure logger settings before first use.
 
@@ -123,7 +126,9 @@ class Logger:
             file_level: File log level
         """
         if cls._logger:
-            cls.get_logger(__name__).warning("Logger already configured, settings not applied")
+            cls.get_logger(__name__).warning(
+                "Logger already configured, settings not applied"
+            )
             return
 
         if default_log_file:
@@ -133,9 +138,9 @@ class Logger:
         if backup_count:
             cls._backup_count = backup_count
         if console_level:
-            os.environ['LOG_CONSOLE_LEVEL'] = console_level
+            os.environ["LOG_CONSOLE_LEVEL"] = console_level
         if file_level:
-            os.environ['LOG_FILE_LEVEL'] = file_level
+            os.environ["LOG_FILE_LEVEL"] = file_level
 
     @classmethod
     def log_call(cls, level: int = logging.DEBUG) -> Callable:

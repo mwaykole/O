@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-import sys
-import os
 import logging
+import os
+import sys
+
 import pkg_resources
+
 from rhoshift.utils.utils import run_command
 
 # Configure logging
@@ -13,13 +15,17 @@ def find_script():
     """Locate the run_upgrade_matrix.sh script using multiple methods."""
     try:
         # 1. First try using package resources (works for installed packages)
-        script_path = pkg_resources.resource_filename('rhoshift', 'scripts/run_upgrade_matrix.sh')
+        script_path = pkg_resources.resource_filename(
+            "rhoshift", "scripts/run_upgrade_matrix.sh"
+        )
         if os.path.exists(script_path):
             return script_path
 
         # 2. Fallback for development environment
-        base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        script_path = os.path.join(base_path, 'scripts', 'run_upgrade_matrix.sh')
+        base_path = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
+        script_path = os.path.join(base_path, "scripts", "run_upgrade_matrix.sh")
         if os.path.exists(script_path):
             return script_path
 
@@ -50,11 +56,7 @@ def run_upgrade_matrix():
         cmd = f"bash {script_path} {args}"
 
         # Execute command
-        return_code, stdout, stderr = run_command(
-            cmd,
-            live_output=True,
-            max_retries=0
-        )
+        return_code, stdout, stderr = run_command(cmd, live_output=True, max_retries=0)
 
         if return_code != 0:
             logger.error(f"Script failed with exit code {return_code}")
@@ -76,8 +78,8 @@ def main():
     """Entry point for the run-upgrade-matrix command."""
     logging.basicConfig(
         level=logging.INFO,
-        format='%(asctime)s | %(levelname)-8s | %(name)s | %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
+        format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
     return run_upgrade_matrix()
 

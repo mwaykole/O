@@ -36,10 +36,10 @@ log() {
     local message=$2
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
     local log_entry="[${timestamp}] [${level}] $message"
-    
+
     # Write to main log file
     echo "$log_entry" >> "$MAIN_LOG"
-    
+
     # Also display on console with colors
     case $level in
         "INFO")
@@ -183,7 +183,7 @@ run_tests() {
     log "INFO" "Running ${test_type}-upgrade tests for ${scenario}"
     log "DEBUG" "Changing to test directory: $TEST_DIR"
     cd "$TEST_DIR" || error_exit "Failed to change to test directory: $TEST_DIR"
-    
+
     if uv run pytest "--${test_type}-upgrade"  --upgrade-deployment-modes="${scenario}" \
           --tc=dependent_operators:"${dependent_operators}" --tc=distribution:downstream  \
          2>&1 | tee -a "$log_file"; then
@@ -350,9 +350,9 @@ show_progress() {
     local message=$2
     local interval=10
     local elapsed=0
-    
+
     log "INFO" "$message"
-    
+
     while [ $elapsed -lt $duration ]; do
         sleep $interval
         elapsed=$((elapsed + interval))
@@ -365,9 +365,9 @@ show_progress() {
 check_pod_status() {
     local namespace="redhat-ods-applications"
     local not_running_pods
-    
+
     not_running_pods=$(oc get pods -n "$namespace" -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.phase}{"\n"}{end}' | grep -v Running)
-    
+
     if [ -n "$not_running_pods" ]; then
         log "WARNING" "Found pods not in Running state:"
         log "WARNING" "$not_running_pods"
@@ -440,7 +440,7 @@ for scenario in "${SCENARIOS_TO_RUN[@]}"; do
     run_tests "post" "$scenario" "$post_log"
 
     log "INFO" "==================== [SCENARIO COMPLETE] ===================="
-    
+
     # Restore original stdout/stderr
     exec 1>&3
     exec 2>&4

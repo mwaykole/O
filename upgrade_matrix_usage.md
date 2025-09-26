@@ -67,7 +67,7 @@ run-upgrade-matrix -s serverless -s rawdeployment 2.10 stable 2.12 stable
 
 The tool supports three main scenarios that test different deployment configurations:
 
-### 1. `rawdeployment` 
+### 1. `rawdeployment`
 - **Description**: Tests basic RHOAI deployment without additional operators
 - **Configuration**: Raw serving enabled (`--raw=True`)
 - **Operators**: None (baseline RHOAI only)
@@ -82,7 +82,7 @@ The tool supports three main scenarios that test different deployment configurat
 
 ### 3. `serverless,rawdeployment`
 - **Description**: Tests complete RHOAI stack with all supported operators
-- **Configuration**: Raw serving disabled (`--raw=False`)  
+- **Configuration**: Raw serving disabled (`--raw=False`)
 - **Operators**: Service Mesh, Authorino, Serverless
 - **rhoshift flags**: `--serverless --authorino --servicemesh`
 - **Use case**: Full-featured deployment testing
@@ -155,7 +155,7 @@ All logs are stored in `/tmp/rhoshift-logs/`:
 - **Main log**: `/tmp/rhoshift.log` - General rhoshift operations
 - **Upgrade matrix log**: `/tmp/rhoshift-logs/upgrade-matrix-YYYYMMDDHHMM.log` - Full execution log
 - **Scenario logs**: `/tmp/rhoshift-logs/scenario-{scenario}-{timestamp}.log` - Per-scenario logs
-- **Test logs**: 
+- **Test logs**:
   - `/tmp/rhoshift-logs/pre-{scenario}-{timestamp}.log` - Pre-upgrade test results
   - `/tmp/rhoshift-logs/post-{scenario}-{timestamp}.log` - Post-upgrade test results
 - **Command logs**: `/tmp/rhoshift-logs/command-{timestamp}.log` - Individual command outputs
@@ -170,7 +170,7 @@ All logs are stored in `/tmp/rhoshift-logs/`:
 ### Test Results Format
 Test results are parsed and displayed showing:
 - **Pre-upgrade status**: passed/failed with test summary
-- **Post-upgrade status**: passed/failed with test summary  
+- **Post-upgrade status**: passed/failed with test summary
 - **Overall scenario status**: passed/failed based on both phases
 - **Test details**: Number of tests passed/failed/skipped
 
@@ -298,4 +298,3 @@ This documentation reflects the current implementation as of the latest version.
 ```bash
 run-upgrade-matrix --help
 ```
-

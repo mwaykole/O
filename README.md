@@ -53,7 +53,7 @@ RHOShift includes a comprehensive stability system designed for enterprise deplo
 
 ### **Pre-flight Validation**
 - ✅ Cluster connectivity and authentication
-- ✅ Required permissions verification  
+- ✅ Required permissions verification
 - ✅ Resource quota validation
 - ✅ Operator catalog accessibility
 - ✅ Namespace conflict detection
@@ -241,7 +241,7 @@ rhoshift --rhoai --kueue Managed --deploy-rhoai-resources
 ```bash
 Operator Selection:
   --serverless          Install OpenShift Serverless Operator
-  --servicemesh         Install Service Mesh Operator  
+  --servicemesh         Install Service Mesh Operator
   --authorino           Install Authorino Operator
   --cert-manager        Install cert-manager Operator
   --rhoai               Install RHOAI Operator
@@ -256,7 +256,7 @@ Configuration:
   --retries RETRIES         Max retry attempts (default: 3)
   --retry-delay RETRY_DELAY Delay between retries (default: 10s)
   --timeout TIMEOUT         Command timeout (default: 300s)
-  
+
 RHOAI Options:
   --rhoai-channel CHANNEL   RHOAI channel (stable/odh-nightlies)
   --rhoai-image IMAGE       RHOAI container image
