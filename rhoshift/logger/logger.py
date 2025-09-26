@@ -1,8 +1,8 @@
-from functools import wraps
 import logging
 import os
-from pathlib import Path
 import sys
+from functools import wraps
+from pathlib import Path
 from typing import Any, Callable, Optional
 
 
@@ -92,7 +92,8 @@ class Logger:
             )
         except ImportError:
             handler = logging.FileHandler(
-                filename=str(log_path), encoding="utf-8"  # Convert Path to string
+                filename=str(log_path),
+                encoding="utf-8",  # Convert Path to string
             )
 
         handler.setLevel(os.getenv("LOG_FILE_LEVEL", "DEBUG"))

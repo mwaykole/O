@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 import sys
-
-sys.dont_write_bytecode = True
 from typing import Optional
 
 import pyfiglet
@@ -13,12 +11,13 @@ from rhoshift.utils.operator.cleanup import cleanup
 from rhoshift.utils.resilience import run_preflight_checks
 from rhoshift.utils.stability_coordinator import StabilityLevel
 
+sys.dont_write_bytecode = True
+
 logger = Logger.get_logger(__name__)
 
 
 def main() -> Optional[int]:
     """Main entry point for the operator installation tool."""
-    import pyfiglet
 
     print(
         "\n".join(

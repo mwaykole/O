@@ -1,61 +1,56 @@
-# Pre-commit configuration for rhoshift project
-# See https://pre-commit.com for more information
+minimum_pre_commit_version: 3.3.0
+default_install_hook_types: [pre-commit, commit-msg]
+
+default_language_version:
+  python: python3.13
+
 repos:
-  # Basic pre-commit hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: "v6.0.0"
     hooks:
-      - id: trailing-whitespace
-      - id: end-of-file-fixer
-      - id: check-yaml
-      - id: check-toml
-      - id: check-json
-      - id: check-added-large-files
       - id: check-merge-conflict
       - id: debug-statements
-      - id: detect-private-key
-      - id: fix-byte-order-marker
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md] # Do not process Markdown files.
+      - id: end-of-file-fixer
+      - id: check-ast
+      - id: check-builtin-literals
+      - id: check-docstring-first
+      - id: check-toml
 
-  # Python import sorting
-  - repo: https://github.com/pycqa/isort
-    rev: 5.13.2
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
     hooks:
-      - id: isort
-        args: [
-          "--profile", "black",
-          "--line-length", "88",
-          "--multi-line", "3",
-          "--trailing-comma",
-          "--force-grid-wrap", "0",
-          "--combine-as",
-          "--force-sort-within-sections"
-        ]
+      - id: detect-secrets
+        exclude: .*/__snapshots__/.*|.*-input\.json$|tests/.*
 
-  # Python code formatting
-  - repo: https://github.com/psf/black
-    rev: 24.8.0
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.13.1
     hooks:
-      - id: black
-        language_version: python3
-        args: ["--line-length", "88"]
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
 
-  # Python linting
-  - repo: https://github.com/pycqa/flake8
-    rev: 7.1.1
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.28.0
     hooks:
-      - id: flake8
-        args: [
-          "--max-line-length", "88",
-          "--extend-ignore", "E203,W503,E501,E402,F401,F841,C901,F811,F821",
-          "--max-complexity", "20"
-        ]
+      - id: gitleaks
 
-  # Security checks (optional - can be run manually)
-  # - repo: https://github.com/PyCQA/bandit
-  #   rev: 1.7.9
-  #   hooks:
-  #     - id: bandit
-  #       args: ["-c", "pyproject.toml"]
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.18.2
+    hooks:
+      - id: mypy
+        additional_dependencies: ["types-PyYAML", "types-requests"]
+        exclude: ^(docs/|.*test.*\.py$|.*/__pycache__/.*|dist/|build/|.*\.egg-info/.*)
+
+  - repo: https://github.com/espressif/conventional-precommit-linter
+    rev: v1.10.0
+    hooks:
+      - id: conventional-precommit-linter
+        stages: [commit-msg]
+        args:
+          - --subject-min-length=10
+          - --subject-max-length=80
 
 # Configuration for excluding files/directories
 exclude: |
@@ -66,5 +61,7 @@ exclude: |
     __pycache__/|
     \.git/|
     \.pytest_cache/|
-    htmlcov/
+    htmlcov/|
+    \.venv/|
+    venv/
   )$

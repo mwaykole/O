@@ -2,11 +2,11 @@
 Health monitoring and state validation for OpenShift operators and resources.
 """
 
-from dataclasses import dataclass, field
-from enum import Enum
 import json
 import logging
 import time
+from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
 from .utils import run_command
