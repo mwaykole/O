@@ -7,8 +7,7 @@ from unittest.mock import patch, Mock, call
 from rhoshift.utils.stability_coordinator import (
     StabilityLevel,
     StabilityConfig,
-    StabilityCoordinator,
-    OperatorInstallationResult
+    StabilityCoordinator
 )
 
 

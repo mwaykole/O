@@ -13,10 +13,10 @@ class TestMainFunction:
     """Test cases for main function"""
     
     def test_main_no_operators_selected(self):
-    """Test main function when no operators are selected"""
-    with patch('sys.argv', ['script.py']):
-        result = main()
-        assert result == 1  # Should return error code
+        """Test main function when no operators are selected"""
+        with patch('sys.argv', ['script.py']):
+            result = main()
+            assert result == 1  # Should return error code
 
     @patch('rhoshift.cli.commands.install_operator')
     def test_main_single_operator_success(self, mock_install):
@@ -24,7 +24,7 @@ class TestMainFunction:
         mock_install.return_value = True
         
         with patch('sys.argv', ['script.py', '--serverless']):
-        result = main()
+            result = main()
             
         assert result == 0  # Should return success code
         mock_install.assert_called_once()
@@ -55,7 +55,7 @@ class TestMainFunction:
         mock_install.return_value = True
         
         with patch('sys.argv', ['script.py', '--serverless', '--rhoai']):
-        result = main()
+            result = main()
             
         assert result == 0  # Should return success code
         mock_install.assert_called_once()
@@ -87,7 +87,7 @@ class TestMainFunction:
         mock_cleanup.return_value = None
         
         with patch('sys.argv', ['script.py', '--cleanup']):
-        result = main()
+            result = main()
             
         assert result is None  # Cleanup should return None
         mock_cleanup.assert_called_once()
@@ -98,7 +98,7 @@ class TestMainFunction:
         mock_cleanup.side_effect = Exception("Cleanup failed")
         
         with patch('sys.argv', ['script.py', '--cleanup']):
-        result = main()
+            result = main()
             
         assert result == 1  # Should return error code
         mock_cleanup.assert_called_once()
@@ -128,11 +128,11 @@ class TestMainFunction:
     
     @patch('rhoshift.cli.commands.install_operator')
     def test_main_exception_handling(self, mock_install):
-    """Test main function exception handling"""
+        """Test main function exception handling"""
         mock_install.side_effect = Exception("Unexpected error")
         
         with patch('sys.argv', ['script.py', '--serverless']):
-        result = main()
+            result = main()
             
         assert result == 1  # Should return error code
 
@@ -215,13 +215,13 @@ class TestMainConfigurationParsing:
         """Test main function with RHOAI-specific configuration"""
         mock_install.return_value = True
         
-    test_image = "quay.io/rhoai/test-image:latest"
-    with patch('sys.argv', [
+        test_image = "quay.io/rhoai/test-image:latest"
+        with patch('sys.argv', [
             'script.py', '--rhoai',
             '--rhoai-channel', 'odh-nightlies',
             '--rhoai-image', test_image,
             '--raw', 'True',
-        '--deploy-rhoai-resources'
+            '--deploy-rhoai-resources'
         ]):
             result = main()
             
@@ -353,7 +353,7 @@ class TestMainComplexScenarios:
             '--deploy-rhoai-resources',
             '--kueue', 'Managed'
         ]):
-        result = main()
+            result = main()
         
         # Verify cleanup was called
         mock_cleanup.assert_called_once()

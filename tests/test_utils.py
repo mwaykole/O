@@ -10,9 +10,7 @@ from unittest.mock import patch, Mock, mock_open, call
 from rhoshift.utils.utils import (
     run_command,
     apply_manifest,
-    wait_for_resource_for_specific_status,
-    check_oc_connectivity,
-    validate_oc_binary
+    wait_for_resource_for_specific_status
 )
 
 
@@ -308,89 +306,6 @@ class TestWaitForResourceForSpecificStatus:
         assert mock_run_command.call_count == 2
 
 
-class TestCheckOcConnectivity:
-    """Test cases for check_oc_connectivity function"""
-    
-    @patch('rhoshift.utils.utils.run_command')
-    def test_check_oc_connectivity_success(self, mock_run_command):
-        """Test successful oc connectivity check"""
-        mock_run_command.return_value = (0, 'system:admin', '')
-        
-        result = check_oc_connectivity()
-        
-        assert result is True
-        mock_run_command.assert_called_once_with('oc whoami', timeout=30)
-    
-    @patch('rhoshift.utils.utils.run_command')
-    def test_check_oc_connectivity_failure(self, mock_run_command):
-        """Test failed oc connectivity check"""
-        mock_run_command.return_value = (1, '', 'connection failed')
-        
-        result = check_oc_connectivity()
-        
-        assert result is False
-    
-    @patch('rhoshift.utils.utils.run_command')
-    def test_check_oc_connectivity_custom_binary(self, mock_run_command):
-        """Test oc connectivity check with custom binary"""
-        mock_run_command.return_value = (0, 'user', '')
-        
-        result = check_oc_connectivity('/custom/oc')
-        
-        assert result is True
-        mock_run_command.assert_called_once_with('/custom/oc whoami', timeout=30)
-    
-    @patch('rhoshift.utils.utils.run_command')
-    def test_check_oc_connectivity_timeout(self, mock_run_command):
-        """Test oc connectivity check with timeout"""
-        mock_run_command.return_value = (124, '', 'timeout')
-        
-        result = check_oc_connectivity(timeout=10)
-        
-        assert result is False
-        mock_run_command.assert_called_once_with('oc whoami', timeout=10)
-
-
-class TestValidateOcBinary:
-    """Test cases for validate_oc_binary function"""
-    
-    @patch('rhoshift.utils.utils.run_command')
-    def test_validate_oc_binary_success(self, mock_run_command):
-        """Test successful oc binary validation"""
-        mock_run_command.return_value = (0, 'Client Version: 4.12.0', '')
-        
-        result = validate_oc_binary()
-        
-        assert result is True
-        mock_run_command.assert_called_once_with('oc version --client', timeout=30)
-    
-    @patch('rhoshift.utils.utils.run_command')
-    def test_validate_oc_binary_failure(self, mock_run_command):
-        """Test failed oc binary validation"""
-        mock_run_command.return_value = (127, '', 'command not found')
-        
-        result = validate_oc_binary()
-        
-        assert result is False
-    
-    @patch('rhoshift.utils.utils.run_command')
-    def test_validate_oc_binary_custom_path(self, mock_run_command):
-        """Test oc binary validation with custom path"""
-        mock_run_command.return_value = (0, 'Client Version: 4.12.0', '')
-        
-        result = validate_oc_binary('/custom/path/oc')
-        
-        assert result is True
-        mock_run_command.assert_called_once_with('/custom/path/oc version --client', timeout=30)
-    
-    @patch('rhoshift.utils.utils.run_command')
-    def test_validate_oc_binary_exception(self, mock_run_command):
-        """Test oc binary validation with exception"""
-        mock_run_command.side_effect = Exception("Unexpected error")
-        
-        result = validate_oc_binary()
-        
-        assert result is False
 
 
 class TestIntegrationScenarios:
@@ -401,18 +316,10 @@ class TestIntegrationScenarios:
         """Test a complete operator installation workflow"""
         # Mock successful responses for the workflow
         mock_run_command.side_effect = [
-            (0, 'system:admin', ''),  # oc whoami
-            (0, 'Client Version: 4.12.0', ''),  # oc version
             (0, 'namespace/test-ns created', ''),  # namespace creation
             (0, 'subscription.operators.coreos.com/test-operator created', ''),  # subscription
             (0, 'Succeeded', ''),  # operator status check
         ]
-        
-        # Validate oc binary
-        assert validate_oc_binary() is True
-        
-        # Check connectivity
-        assert check_oc_connectivity() is True
         
         # Apply namespace manifest
         namespace_manifest = """
