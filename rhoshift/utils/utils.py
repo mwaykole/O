@@ -1,26 +1,29 @@
+import asyncio
 import logging
 import subprocess
-import time
-import asyncio
-from typing import Tuple, Optional, Dict, Any
 import sys
 import threading
+import time
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any, Dict, Optional, Tuple
 
 
 class CommandError(Exception):
     """Base exception for command execution errors."""
+
     pass
 
 
 class CommandTimeoutError(CommandError):
     """Raised when a command execution times out."""
+
     pass
 
 
 class CommandExecutionError(CommandError):
     """Raised when a command fails to execute."""
+
     def __init__(self, return_code: int, command: str, stdout: str, stderr: str):
         self.return_code = return_code
         self.command = command
@@ -32,6 +35,7 @@ class CommandExecutionError(CommandError):
 @dataclass
 class CommandResult:
     """Result of a command execution."""
+
     return_code: int
     stdout: str
     stderr: str
@@ -40,21 +44,22 @@ class CommandResult:
 
 class OutputMode(Enum):
     """Mode for handling command output."""
+
     BUFFER = "buffer"  # Collect all output in memory
     STREAM = "stream"  # Stream output in real-time
     DISCARD = "discard"  # Discard output
 
 
 async def run_command_async(
-        cmd: str,
-        max_retries: int = 3,
-        retry_delay: float = 5.0,
-        timeout: Optional[int] = None,
-        cwd: Optional[str] = None,
-        env: Optional[dict] = None,
-        shell: bool = True,
-        output_mode: OutputMode = OutputMode.BUFFER,
-        log_output: bool = True,
+    cmd: str,
+    max_retries: int = 3,
+    retry_delay: float = 5.0,
+    timeout: Optional[int] = None,
+    cwd: Optional[str] = None,
+    env: Optional[dict] = None,
+    shell: bool = True,
+    output_mode: OutputMode = OutputMode.BUFFER,
+    log_output: bool = True,
 ) -> CommandResult:
     """Execute a shell command asynchronously with retries and proper error handling."""
     attempt = 0
@@ -66,35 +71,45 @@ async def run_command_async(
             logging.info(f"Executing command (attempt {attempt}/{max_retries}): {cmd}")
 
             if output_mode == OutputMode.STREAM:
-                return await _run_command_streaming(cmd, timeout, cwd, env, shell, log_output, start_time)
+                return await _run_command_streaming(
+                    cmd, timeout, cwd, env, shell, log_output, start_time
+                )
             else:
-                return await _run_command_buffered(cmd, timeout, cwd, env, shell, log_output, output_mode, start_time)
+                return await _run_command_buffered(
+                    cmd, timeout, cwd, env, shell, log_output, output_mode, start_time
+                )
 
         except asyncio.TimeoutError:
             if attempt <= max_retries:
-                logging.warning(f"Command timed out, retrying in {retry_delay} seconds...")
+                logging.warning(
+                    f"Command timed out, retrying in {retry_delay} seconds..."
+                )
                 await asyncio.sleep(retry_delay)
             else:
-                raise CommandTimeoutError(f"Command timed out after {timeout} seconds: {cmd}")
+                raise CommandTimeoutError(
+                    f"Command timed out after {timeout} seconds: {cmd}"
+                ) from None
 
         except Exception as e:
             if attempt <= max_retries:
-                logging.warning(f"Command failed, retrying in {retry_delay} seconds: {str(e)}")
+                logging.warning(
+                    f"Command failed, retrying in {retry_delay} seconds: {str(e)}"
+                )
                 await asyncio.sleep(retry_delay)
             else:
-                raise CommandExecutionError(-1, cmd, "", str(e))
+                raise CommandExecutionError(-1, cmd, "", str(e)) from e
 
     raise CommandExecutionError(-1, cmd, "", "Max retries exceeded")
 
 
 async def _run_command_streaming(
-        cmd: str,
-        timeout: Optional[int],
-        cwd: Optional[str],
-        env: Optional[dict],
-        shell: bool,
-        log_output: bool,
-        start_time: float,
+    cmd: str,
+    timeout: Optional[int],
+    cwd: Optional[str],
+    env: Optional[dict],
+    shell: bool,
+    log_output: bool,
+    start_time: float,
 ) -> CommandResult:
     """Run command with streaming output."""
     process = await asyncio.create_subprocess_shell(
@@ -103,7 +118,7 @@ async def _run_command_streaming(
         stderr=asyncio.subprocess.PIPE,
         cwd=cwd,
         env=env,
-        shell=shell
+        shell=shell,
     )
 
     stdout_lines = []
@@ -121,50 +136,56 @@ async def _run_command_streaming(
 
     await asyncio.gather(
         read_stream(process.stdout, stdout_lines),
-        read_stream(process.stderr, stderr_lines, True)
+        read_stream(process.stderr, stderr_lines, True),
     )
 
     try:
         return_code = await asyncio.wait_for(process.wait(), timeout=timeout)
     except asyncio.TimeoutError:
         process.kill()
-        raise CommandTimeoutError(f"Command timed out after {timeout} seconds: {cmd}")
+        raise CommandTimeoutError(
+            f"Command timed out after {timeout} seconds: {cmd}"
+        ) from None
 
     return CommandResult(
         return_code=return_code,
-        stdout='\n'.join(stdout_lines),
-        stderr='\n'.join(stderr_lines),
-        execution_time=time.time() - start_time
+        stdout="\n".join(stdout_lines),
+        stderr="\n".join(stderr_lines),
+        execution_time=time.time() - start_time,
     )
 
 
 async def _run_command_buffered(
-        cmd: str,
-        timeout: Optional[int],
-        cwd: Optional[str],
-        env: Optional[dict],
-        shell: bool,
-        log_output: bool,
-        output_mode: OutputMode,
-        start_time: float,
+    cmd: str,
+    timeout: Optional[int],
+    cwd: Optional[str],
+    env: Optional[dict],
+    shell: bool,
+    log_output: bool,
+    output_mode: OutputMode,
+    start_time: float,
 ) -> CommandResult:
     """Run command with buffered output."""
     try:
         process = await asyncio.create_subprocess_shell(
             cmd,
-            stdout=asyncio.subprocess.PIPE if output_mode != OutputMode.DISCARD else None,
-            stderr=asyncio.subprocess.PIPE if output_mode != OutputMode.DISCARD else None,
+            stdout=asyncio.subprocess.PIPE
+            if output_mode != OutputMode.DISCARD
+            else None,
+            stderr=asyncio.subprocess.PIPE
+            if output_mode != OutputMode.DISCARD
+            else None,
             cwd=cwd,
             env=env,
-            shell=shell
+            shell=shell,
         )
 
         stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
-        
+
         if output_mode != OutputMode.DISCARD:
             stdout_str = stdout.decode() if stdout else ""
             stderr_str = stderr.decode() if stderr else ""
-            
+
             if log_output:
                 if stdout_str:
                     logging.debug(f"STDOUT: {stdout_str.strip()}")
@@ -177,38 +198,42 @@ async def _run_command_buffered(
             return_code=process.returncode,
             stdout=stdout_str,
             stderr=stderr_str,
-            execution_time=time.time() - start_time
+            execution_time=time.time() - start_time,
         )
 
     except asyncio.TimeoutError:
-        raise CommandTimeoutError(f"Command timed out after {timeout} seconds: {cmd}")
+        raise CommandTimeoutError(
+            f"Command timed out after {timeout} seconds: {cmd}"
+        ) from None
 
 
 def run_command(
-        cmd: str,
-        max_retries: int = 3,
-        retry_delay: float = 5.0,
-        timeout: Optional[int] = None,
-        cwd: Optional[str] = None,
-        env: Optional[dict] = None,
-        shell: bool = True,
-        log_output: bool = True,
-        live_output: bool = False,
+    cmd: str,
+    max_retries: int = 3,
+    retry_delay: float = 5.0,
+    timeout: Optional[int] = None,
+    cwd: Optional[str] = None,
+    env: Optional[dict] = None,
+    shell: bool = True,
+    log_output: bool = True,
+    live_output: bool = False,
 ) -> Tuple[int, str, str]:
     """Synchronous wrapper for run_command_async."""
     output_mode = OutputMode.STREAM if live_output else OutputMode.BUFFER
     try:
-        result = asyncio.run(run_command_async(
-            cmd=cmd,
-            max_retries=max_retries,
-            retry_delay=retry_delay,
-            timeout=timeout,
-            cwd=cwd,
-            env=env,
-            shell=shell,
-            output_mode=output_mode,
-            log_output=log_output
-        ))
+        result = asyncio.run(
+            run_command_async(
+                cmd=cmd,
+                max_retries=max_retries,
+                retry_delay=retry_delay,
+                timeout=timeout,
+                cwd=cwd,
+                env=env,
+                shell=shell,
+                output_mode=output_mode,
+                log_output=log_output,
+            )
+        )
         return result.return_code, result.stdout, result.stderr
     except CommandError as e:
         if isinstance(e, CommandExecutionError):
@@ -217,15 +242,15 @@ def run_command(
 
 
 def apply_manifest(
-        manifest_content: str,
-        oc_binary: str = "oc",
-        namespace: Optional[str] = None,
-        context: Optional[str] = None,
-        max_retries: int = 3,
-        retry_delay: float = 10.0,
-        timeout: Optional[int] = 300,
-        log_output: bool = True,
-        **kwargs
+    manifest_content: str,
+    oc_binary: str = "oc",
+    namespace: Optional[str] = None,
+    context: Optional[str] = None,
+    max_retries: int = 3,
+    retry_delay: float = 10.0,
+    timeout: Optional[int] = 300,
+    log_output: bool = True,
+    **kwargs,
 ) -> Tuple[int, str, str]:
     """Apply a Kubernetes/OpenShift manifest with robust error handling.
 
@@ -262,13 +287,20 @@ def apply_manifest(
         if logging.getLogger().isEnabledFor(logging.DEBUG):
             logging.debug(f"Manifest content:\n{manifest_content}")
 
+        # Filter kwargs to only include parameters accepted by run_command
+        run_command_kwargs = {
+            k: v
+            for k, v in kwargs.items()
+            if k in ["cwd", "env", "shell", "live_output"]
+        }
+
         rc, stdout, stderr = run_command(
             full_cmd,
             max_retries=max_retries,
             retry_delay=retry_delay,
             timeout=timeout,
             log_output=log_output,
-            **kwargs
+            **run_command_kwargs,
         )
 
         if rc != 0:
@@ -287,17 +319,17 @@ def apply_manifest(
 
 
 def wait_for_resource_for_specific_status(
-        status: str,
-        cmd: str,
-        timeout: int = 300,
-        interval: int = 5,
-        case_sensitive: bool = False,
-        max_retries: int = 3,
-        retry_delay: float = 5.0,
-        log_output: bool = True,
-        cwd: Optional[str] = None,
-        env: Optional[dict] = None,
-        shell: bool = True
+    status: str,
+    cmd: str,
+    timeout: int = 300,
+    interval: int = 5,
+    case_sensitive: bool = False,
+    max_retries: int = 3,
+    retry_delay: float = 5.0,
+    log_output: bool = True,
+    cwd: Optional[str] = None,
+    env: Optional[dict] = None,
+    shell: bool = True,
 ) -> Tuple[bool, str, str]:
     """
     Wait for a specific status to appear in command output.
@@ -336,7 +368,7 @@ def wait_for_resource_for_specific_status(
             cwd=cwd,
             env=env,
             shell=shell,
-            log_output=log_output
+            log_output=log_output,
         )
 
         # Check if command succeeded and contains desired status

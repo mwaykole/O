@@ -256,7 +256,7 @@ Configuration:
   --retries RETRIES         Max retry attempts (default: 3)
   --retry-delay RETRY_DELAY Delay between retries (default: 10s)
   --timeout TIMEOUT         Command timeout (default: 300s)
-  
+
 RHOAI Options:
   --rhoai-channel CHANNEL   RHOAI channel (stable/odh-nightlies)
   --rhoai-image IMAGE       RHOAI container image

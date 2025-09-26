@@ -398,7 +398,7 @@ local crds_to_delete=(
     "scaledjobs.keda.sh"
     "triggerauthentications.keda.sh"
     "clustertriggerauthentications.keda.sh"
-    
+
 )
 
 # Delete additional CRDs by pattern

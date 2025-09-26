@@ -71,7 +71,77 @@ test = [
     "pytest-cov",
 ]
 dev = [
-    "ruff",
-    "pre-commit",
+    "ruff>=0.13.0",
+    "pre-commit>=3.3.0",
     "build",
+    "mypy>=1.18.0",
+    "gitleaks",
+    "detect-secrets",
+    "types-PyYAML",
+    "types-requests",
+]
+
+# Tool configurations for pre-commit hooks
+[tool.ruff]
+line-length = 88
+target-version = "py38"
+extend-exclude = [
+    "dist",
+    "build",
+    "*.egg-info",
+    ".venv",
+    "venv",
+    "__pycache__",
+    ".pytest_cache",
+    "htmlcov"
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+    "N",   # pep8-naming
+]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "E203",  # whitespace before ':' (conflicts with black)
+    "F401",  # unused imports (sometimes needed for type checking)
+    "F841",  # unused variables (sometimes needed for unpacking)
+    "N999",  # Invalid module name (project directory is 'O')
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["F401", "F841", "N802", "N803", "N806", "B017", "B007", "F811", "F821"]  # Allow test-specific patterns
+"setup.py" = ["F401"]
+"rhoshift/utils/constants.py" = ["N802", "N806"]  # Allow uppercase property names for manifest constants
+"rhoshift/utils/operator/operator.py" = ["N802", "N806"]  # Allow uppercase property names and variable names
+"rhoshift/main.py" = ["E402"]  # Allow imports after sys.dont_write_bytecode
+"rhoshift/cli/commands.py" = ["E402"]  # Allow imports after sys.dont_write_bytecode
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = false
+warn_unused_configs = false
+disallow_untyped_defs = false
+ignore_missing_imports = true
+no_strict_optional = true
+disable_error_code = ["assignment", "arg-type", "var-annotated", "return-value", "union-attr", "attr-defined", "return", "index", "no-any-return"]
+exclude = [
+    "tests/",
+    "build/",
+    "dist/",
+    "*.egg-info/",
+    "__pycache__/",
+    "rhoshift/utils/operator/enhanced_operator.py",  # Temporary exclude to resolve module duplication
 ]
