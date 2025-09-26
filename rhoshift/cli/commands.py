@@ -100,6 +100,7 @@ def install_operator(op_name: str, config: Dict[str, Any]) -> bool:
         'rhoai_image': config.get("rhoai_image"),
         'raw': config.get("raw", False),
         'create_dsc_dsci': config.get("create_dsc_dsci", False),
+        'kueue_management_state': config.get("kueue_management_state"),  # Pass Kueue management state
         'csv_name': "opendatahub-operator" if config.get("rhoai_channel") == "odh-nightlies" else "rhods-operator",
         'namespace': 'opendatahub-operators' if config.get("rhoai_channel") == "odh-nightlies" else "redhat-ods-operator",
         'display': '🤖 ODH Operator' if config.get("rhoai_channel") == "odh-nightlies" else '🤖 RHOAI Operator'

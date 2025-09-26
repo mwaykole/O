@@ -281,8 +281,12 @@ spec:
                 time.sleep(webhook_wait_time)
                 
                 # create new dsc and dsci
-                cls.deploy_dsc_dsci(kserve_raw=is_Raw, channel=channel,
-                                    create_dsc_dsci=create_dsc_dsci)
+                cls.deploy_dsc_dsci(
+                    kserve_raw=is_Raw, 
+                    channel=channel,
+                    create_dsc_dsci=create_dsc_dsci,
+                    kueue_management_state=kwargs.get('kueue_management_state')
+                )
 
             return results
 
@@ -617,7 +621,7 @@ spec:
                 return (1, "", f"RHOAI installation failed: {error_msg}")
 
     @classmethod
-    def deploy_dsc_dsci(cls, channel, kserve_raw=False, create_dsc_dsci=False):
+    def deploy_dsc_dsci(cls, channel, kserve_raw=False, create_dsc_dsci=False, kueue_management_state=None):
         """
         Deploys Data Science Cluster and Instance resources for RHOAI.
 
@@ -625,6 +629,7 @@ spec:
             channel: Installation channel
             kserve_raw: Enable raw serving
             create_dsc_dsci: Create new DSC/DSCI resources
+            kueue_management_state: Kueue managementState in DSC ('Managed', 'Unmanaged', or None)
         """
         logging.debug("Deploying Data Science Cluster and Instance resources...")
         if create_dsc_dsci:
@@ -752,8 +757,12 @@ spec:
         if channel == "odh-nightlies":
             dsc_params["operator_namespace"] = "opendatahub-operator"
 
-        # Deploy DataScienceCluster
-        apply_manifest(constants.get_dsc_manifest(enable_raw_serving=kserve_raw, **dsc_params))
+        # Deploy DataScienceCluster with Kueue management state
+        apply_manifest(constants.get_dsc_manifest(
+            enable_raw_serving=kserve_raw, 
+            kueue_management_state=kueue_management_state,
+            **dsc_params
+        ))
         namespace = "opendatahub" if channel == "odh-nightlies" else "redhat-ods-applications"
 
         success, out, err = wait_for_resource_for_specific_status(

@@ -27,3 +27,8 @@ def cleanup():
         
     except Exception as e:
         raise RuntimeError(f"Failed to execute cleanup script: {str(e)}")
+
+
+def cleanup_all_operators():
+    """Alias for cleanup() function to match test expectations."""
+    return cleanup()

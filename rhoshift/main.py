@@ -73,7 +73,7 @@ def main() -> Optional[int]:
             'servicemesh': args.servicemesh or args.all,
             'authorino': args.authorino or args.all,
             'cert-manager': getattr(args, 'cert_manager', False) or args.all,
-            'kueue': bool(args.kueue) or args.all,  # Convert to boolean for operator selection
+            'kueue': args.kueue if args.kueue else (True if args.all else False),  # Preserve management state value
             'keda': args.keda or args.all,
             'rhoai': args.rhoai or args.all,  # Include RHOAI in --all
         }
