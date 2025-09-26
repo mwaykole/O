@@ -275,6 +275,7 @@ spec:
                 if channel == "odh-nightlies"
                 else ""
             )
+
             install_cmd = (
                 f"cd {temp_dir} && "
                 f"./setup.sh -t operator -u {channel} -i {rhoai_image}{extra_params}"

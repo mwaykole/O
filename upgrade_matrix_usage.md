@@ -82,7 +82,7 @@ The tool supports three main scenarios that test different deployment configurat
 
 ### 3. `serverless,rawdeployment`
 - **Description**: Tests complete RHOAI stack with all supported operators
-- **Configuration**: Raw serving disabled (`--raw=False`)  
+- **Configuration**: Raw serving disabled (`--raw=False`)
 - **Operators**: Service Mesh, Authorino, Serverless
 - **rhoshift flags**: `--serverless --authorino --servicemesh`
 - **Use case**: Full-featured deployment testing
@@ -170,7 +170,7 @@ All logs are stored in `/tmp/rhoshift-logs/`:
 ### Test Results Format
 Test results are parsed and displayed showing:
 - **Pre-upgrade status**: passed/failed with test summary
-- **Post-upgrade status**: passed/failed with test summary  
+- **Post-upgrade status**: passed/failed with test summary
 - **Overall scenario status**: passed/failed based on both phases
 - **Test details**: Number of tests passed/failed/skipped
 
