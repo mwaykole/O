@@ -44,15 +44,6 @@ repos:
         args: [--explicit-package-bases]
         exclude: ^(docs/|.*test.*\.py$|.*/__pycache__/.*|dist/|build/|.*\.egg-info/.*)
 
-  - repo: https://github.com/espressif/conventional-precommit-linter
-    rev: v1.10.0
-    hooks:
-      - id: conventional-precommit-linter
-        stages: [commit-msg]
-        args:
-          - --subject-min-length=10
-          - --subject-max-length=80
-
 # Configuration for excluding files/directories
 exclude: |
   (?x)^(
