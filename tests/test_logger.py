@@ -360,9 +360,9 @@ class TestLoggerIntegration:
         duration = end_time - start_time
 
         # Should complete in reasonable time (less than 5 seconds for 1000 messages)
-        assert (
-            duration < 5.0
-        ), f"Logging 1000 messages took too long: {duration} seconds"
+        assert duration < 5.0, (
+            f"Logging 1000 messages took too long: {duration} seconds"
+        )
 
     def test_logger_with_structured_data(self):
         """Test logger with structured data"""

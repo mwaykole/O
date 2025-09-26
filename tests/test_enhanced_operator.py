@@ -4,6 +4,8 @@ Comprehensive tests for rhoshift.utils.operator.enhanced_operator module.
 
 from unittest.mock import Mock, call, patch
 
+import pytest
+
 from rhoshift.utils.health_monitor import HealthStatus
 from rhoshift.utils.operator.enhanced_operator import (
     EnhancedOpenShiftOperatorInstaller,
@@ -98,9 +100,7 @@ class TestEnhancedOpenShiftOperatorInstaller:
         ) as mock_install:
             mock_install.return_value = (0, "Success", "")
 
-            result = (
-                EnhancedOpenShiftOperatorInstaller.install_serverless_operator_enhanced()
-            )
+            result = EnhancedOpenShiftOperatorInstaller.install_serverless_operator_enhanced()
 
             assert result[0] == 0
             mock_install.assert_called_once_with("serverless-operator")

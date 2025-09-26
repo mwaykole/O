@@ -231,6 +231,7 @@ spec:
         rhoai_image = kwargs.pop("rhoai_image")
         is_Raw = bool(kwargs.pop("raw"))
         create_dsc_dsci = bool(kwargs.pop("create_dsc_dsci"))
+        kueue_management_state = kwargs.pop("kueue_management_state", None)
 
         if not channel or not rhoai_image:
             raise RuntimeError("Both channel and rhoai_image are required")
@@ -244,8 +245,27 @@ spec:
                 f"cd {temp_dir}"
             )
 
+            # Filter kwargs to only include parameters accepted by run_command
+            run_command_kwargs = {
+                k: v
+                for k, v in kwargs.items()
+                if k
+                in [
+                    "max_retries",
+                    "retry_delay",
+                    "cwd",
+                    "env",
+                    "shell",
+                    "log_output",
+                    "live_output",
+                ]
+            }
+
             rc, stdout, stderr = run_command(
-                clone_cmd, timeout=WaitTime.WAIT_TIME_5_MIN, log_output=True, **kwargs
+                clone_cmd,
+                timeout=WaitTime.WAIT_TIME_5_MIN,
+                log_output=True,
+                **run_command_kwargs,
             )
             if rc != 0:
                 raise RuntimeError(f"Failed to clone olminstall repo: {stderr}")
@@ -255,13 +275,14 @@ spec:
                 if channel == "odh-nightlies"
                 else ""
             )
+
             install_cmd = (
                 f"cd {temp_dir} && "
                 f"./setup.sh -t operator -u {channel} -i {rhoai_image}{extra_params}"
             )
 
             rc, stdout, stderr = run_command(
-                install_cmd, timeout=timeout, log_output=True, **kwargs
+                install_cmd, timeout=timeout, log_output=True, **run_command_kwargs
             )
 
             if rc != 0:
@@ -306,7 +327,7 @@ spec:
                     kserve_raw=is_Raw,
                     channel=channel,
                     create_dsc_dsci=create_dsc_dsci,
-                    kueue_management_state=kwargs.get("kueue_management_state"),
+                    kueue_management_state=kueue_management_state,
                 )
 
             return results
@@ -633,9 +654,9 @@ spec:
                             if alt_rc == 0:
                                 logger.info("✅ DSCI deleted using direct approach")
                                 results[cmd_info["name"]]["status"] = "success"
-                                results[cmd_info["name"]][
-                                    "alternative_method"
-                                ] = "force delete"
+                                results[cmd_info["name"]]["alternative_method"] = (
+                                    "force delete"
+                                )
                             else:
                                 logger.warning(
                                     f"⚠️  Direct DSCI deletion also failed: {alt_stderr}"
@@ -653,9 +674,9 @@ spec:
                                             logger.info(
                                                 "✅ DSCI deleted after finalizer removal"
                                             )
-                                            results[cmd_info["name"]][
-                                                "status"
-                                            ] = "success"
+                                            results[cmd_info["name"]]["status"] = (
+                                                "success"
+                                            )
                                             results[cmd_info["name"]][
                                                 "alternative_method"
                                             ] = "finalizer patch + force delete"
@@ -720,7 +741,6 @@ spec:
         """
         logging.debug("Deploying Data Science Cluster and Instance resources...")
         if create_dsc_dsci:
-
             # Delete old dsc and dsci
             result = cls.force_delete_rhoai_dsc_dsci()
             # Check results

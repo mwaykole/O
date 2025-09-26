@@ -37,6 +37,7 @@ class TestOperatorConfig:
 
     def test_operator_config_with_custom_options(self):
         """Test OperatorConfig with custom options"""
+        from rhoshift.utils.constants import CatalogSource, InstallMode
 
         config = OperatorConfig(
             name="test-operator",

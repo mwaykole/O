@@ -92,8 +92,8 @@ class Logger:
             )
         except ImportError:
             handler = logging.FileHandler(
-                filename=str(log_path),
-                encoding="utf-8",  # Convert Path to string
+                filename=str(log_path),  # Convert Path to string
+                encoding="utf-8",
             )
 
         handler.setLevel(os.getenv("LOG_FILE_LEVEL", "DEBUG"))

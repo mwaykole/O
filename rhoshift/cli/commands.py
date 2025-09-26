@@ -112,21 +112,15 @@ def install_operator(op_name: str, config: Dict[str, Any]) -> bool:
         "kueue_management_state": config.get(
             "kueue_management_state"
         ),  # Pass Kueue management state
-        "csv_name": (
-            "opendatahub-operator"
-            if config.get("rhoai_channel") == "odh-nightlies"
-            else "rhods-operator"
-        ),
-        "namespace": (
-            "opendatahub-operators"
-            if config.get("rhoai_channel") == "odh-nightlies"
-            else "redhat-ods-operator"
-        ),
-        "display": (
-            "🤖 ODH Operator"
-            if config.get("rhoai_channel") == "odh-nightlies"
-            else "🤖 RHOAI Operator"
-        ),
+        "csv_name": "opendatahub-operator"
+        if config.get("rhoai_channel") == "odh-nightlies"
+        else "rhods-operator",
+        "namespace": "opendatahub-operators"
+        if config.get("rhoai_channel") == "odh-nightlies"
+        else "redhat-ods-operator",
+        "display": "🤖 ODH Operator"
+        if config.get("rhoai_channel") == "odh-nightlies"
+        else "🤖 RHOAI Operator",
     }
     if op_name not in operator_map:
         raise ValueError(f"Unknown operator: {op_name}")

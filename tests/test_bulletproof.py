@@ -14,6 +14,7 @@ class TestPureUnitFunctionality:
 
     def test_str_to_bool_comprehensive(self):
         """Test str_to_bool function comprehensively"""
+        from rhoshift.cli.args import str_to_bool
 
         # Test all true values
         true_vals = ["yes", "true", "t", "y", "1", "YES", "TRUE", "True", "Y"]
@@ -35,6 +36,7 @@ class TestPureUnitFunctionality:
 
     def test_operator_config_creation_complete(self):
         """Test OperatorConfig creation with all parameters"""
+        from rhoshift.utils.constants import CatalogSource, InstallMode, OperatorConfig
 
         # Test minimal config
         config = OperatorConfig(
@@ -70,6 +72,7 @@ class TestPureUnitFunctionality:
 
     def test_wait_time_constants_complete(self):
         """Test all WaitTime constants"""
+        from rhoshift.utils.constants import WaitTime
 
         # Test values
         assert WaitTime.WAIT_TIME_10_MIN == 600
@@ -90,6 +93,7 @@ class TestPureUnitFunctionality:
 
     def test_health_status_enum_complete(self):
         """Test HealthStatus enum completely"""
+        from rhoshift.utils.health_monitor import HealthStatus
 
         # Test values
         assert HealthStatus.HEALTHY.value == "healthy"
@@ -107,6 +111,7 @@ class TestPureUnitFunctionality:
 
     def test_stability_level_enum_complete(self):
         """Test StabilityLevel enum completely"""
+        from rhoshift.utils.stability_coordinator import StabilityLevel
 
         # Test values
         assert StabilityLevel.BASIC.value == 1
@@ -128,6 +133,7 @@ class TestManifestGenerationPure:
 
     def test_dsci_manifest_default_parameters(self):
         """Test DSCI manifest with default parameters"""
+        from rhoshift.utils.constants import get_dsci_manifest
 
         manifest = get_dsci_manifest()
 
@@ -142,6 +148,7 @@ class TestManifestGenerationPure:
 
     def test_dsci_manifest_custom_parameters(self):
         """Test DSCI manifest with custom parameters"""
+        from rhoshift.utils.constants import get_dsci_manifest
 
         manifest = get_dsci_manifest(
             kserve_raw=False,
@@ -156,6 +163,7 @@ class TestManifestGenerationPure:
 
     def test_dsci_manifest_raw_serving_enabled(self):
         """Test DSCI manifest with raw serving enabled"""
+        from rhoshift.utils.constants import get_dsci_manifest
 
         manifest = get_dsci_manifest(kserve_raw=True)
 
@@ -164,6 +172,7 @@ class TestManifestGenerationPure:
 
     def test_dsc_manifest_default_parameters(self):
         """Test DSC manifest with default parameters"""
+        from rhoshift.utils.constants import get_dsc_manifest
 
         manifest = get_dsc_manifest()
 
@@ -179,6 +188,7 @@ class TestManifestGenerationPure:
 
     def test_dsc_manifest_with_kueue_managed(self):
         """Test DSC manifest with Kueue Managed"""
+        from rhoshift.utils.constants import get_dsc_manifest
 
         manifest = get_dsc_manifest(kueue_management_state="Managed")
 
@@ -187,6 +197,7 @@ class TestManifestGenerationPure:
 
     def test_dsc_manifest_with_kueue_unmanaged(self):
         """Test DSC manifest with Kueue Unmanaged"""
+        from rhoshift.utils.constants import get_dsc_manifest
 
         manifest = get_dsc_manifest(kueue_management_state="Unmanaged")
 
@@ -195,6 +206,7 @@ class TestManifestGenerationPure:
 
     def test_dsc_manifest_without_kueue(self):
         """Test DSC manifest without Kueue"""
+        from rhoshift.utils.constants import get_dsc_manifest
 
         manifest = get_dsc_manifest(kueue_management_state=None)
 
@@ -205,6 +217,7 @@ class TestManifestGenerationPure:
 
     def test_operator_manifest_generation_structure(self):
         """Test operator manifest generation structure"""
+        from rhoshift.utils.constants import OpenShiftOperatorInstallManifest
 
         manifest_gen = OpenShiftOperatorInstallManifest()
 
@@ -233,6 +246,7 @@ class TestOperatorConfigurationLogic:
 
     def test_operator_list_completeness(self):
         """Test operator list contains expected operators"""
+        from rhoshift.utils.constants import OpenShiftOperatorInstallManifest
 
         operators = OpenShiftOperatorInstallManifest.list_operators()
 
@@ -253,6 +267,7 @@ class TestOperatorConfigurationLogic:
 
     def test_operator_config_retrieval(self):
         """Test operator configuration retrieval"""
+        from rhoshift.utils.constants import OpenShiftOperatorInstallManifest
 
         # Test valid operators
         valid_operators = [
@@ -270,6 +285,7 @@ class TestOperatorConfigurationLogic:
 
     def test_dependency_resolution_complete(self):
         """Test dependency resolution comprehensively"""
+        from rhoshift.utils.constants import OpenShiftOperatorInstallManifest
 
         # Test operator with no dependencies
         resolved = OpenShiftOperatorInstallManifest.resolve_dependencies(
@@ -297,6 +313,7 @@ class TestOperatorConfigurationLogic:
 
     def test_operator_compatibility_validation_complete(self):
         """Test operator compatibility validation"""
+        from rhoshift.utils.constants import OpenShiftOperatorInstallManifest
 
         # Test empty list
         warnings = OpenShiftOperatorInstallManifest.validate_operator_compatibility([])
@@ -320,6 +337,7 @@ class TestArgumentParsingComprehensive:
 
     def test_parse_args_all_individual_operators(self):
         """Test parsing each individual operator"""
+        from rhoshift.cli.args import parse_args
 
         operators = ["serverless", "servicemesh", "authorino", "cert-manager", "keda"]
 
@@ -330,6 +348,7 @@ class TestArgumentParsingComprehensive:
 
     def test_parse_args_kueue_variations_complete(self):
         """Test all Kueue argument variations"""
+        from rhoshift.cli.args import parse_args
 
         # Test no Kueue
         with patch("sys.argv", ["script.py", "--serverless"]):
@@ -353,6 +372,7 @@ class TestArgumentParsingComprehensive:
 
     def test_build_config_all_parameters(self):
         """Test build_config with all parameters"""
+        from rhoshift.cli.args import build_config, parse_args
 
         with patch(
             "sys.argv",
@@ -384,6 +404,7 @@ class TestArgumentParsingComprehensive:
 
     def test_select_operators_all_scenarios(self):
         """Test select_operators in all scenarios"""
+        from rhoshift.cli.args import parse_args, select_operators
 
         # Test --all flag
         with patch("sys.argv", ["script.py", "--all"]):
@@ -430,6 +451,7 @@ class TestDataClassesAndEnums:
 
     def test_resource_type_enum(self):
         """Test ResourceType enum"""
+        from rhoshift.utils.health_monitor import ResourceType
 
         expected_types = {
             "OPERATOR_CSV": "csv",
@@ -448,6 +470,7 @@ class TestDataClassesAndEnums:
 
     def test_health_check_dataclass(self):
         """Test HealthCheck dataclass"""
+        from rhoshift.utils.health_monitor import HealthCheck, ResourceType
 
         # Test minimal creation
         check = HealthCheck(
@@ -479,6 +502,11 @@ class TestDataClassesAndEnums:
 
     def test_resource_health_dataclass(self):
         """Test ResourceHealth dataclass"""
+        from rhoshift.utils.health_monitor import (
+            HealthStatus,
+            ResourceHealth,
+            ResourceType,
+        )
 
         health = ResourceHealth(
             resource_type=ResourceType.POD,
@@ -498,6 +526,7 @@ class TestDataClassesAndEnums:
 
     def test_stability_config_dataclass(self):
         """Test StabilityConfig dataclass"""
+        from rhoshift.utils.stability_coordinator import StabilityConfig, StabilityLevel
 
         # Test default config
         config = StabilityConfig()
@@ -519,6 +548,7 @@ class TestErrorHandlingPure:
 
     def test_invalid_operator_config_error(self):
         """Test error handling for invalid operator config"""
+        from rhoshift.utils.constants import OpenShiftOperatorInstallManifest
 
         with pytest.raises(ValueError) as excinfo:
             OpenShiftOperatorInstallManifest.get_operator_config("nonexistent-operator")
@@ -528,6 +558,8 @@ class TestErrorHandlingPure:
     def test_str_to_bool_invalid_values(self):
         """Test str_to_bool error handling"""
         import argparse
+
+        from rhoshift.cli.args import str_to_bool
 
         invalid_values = ["maybe", "unknown", "2", "-1", "invalid"]
 
@@ -541,6 +573,11 @@ class TestClassInitialization:
 
     def test_stability_coordinator_initialization(self):
         """Test StabilityCoordinator initialization"""
+        from rhoshift.utils.stability_coordinator import (
+            StabilityConfig,
+            StabilityCoordinator,
+            StabilityLevel,
+        )
 
         # Test with default config
         config = StabilityConfig()
@@ -558,6 +595,10 @@ class TestClassInitialization:
 
     def test_enhanced_operator_initialization(self):
         """Test EnhancedOpenShiftOperatorInstaller initialization"""
+        from rhoshift.utils.operator.enhanced_operator import (
+            EnhancedOpenShiftOperatorInstaller,
+        )
+        from rhoshift.utils.stability_coordinator import StabilityLevel
 
         # Test default initialization
         installer = EnhancedOpenShiftOperatorInstaller()
@@ -573,6 +614,7 @@ class TestClassInitialization:
 
     def test_operator_health_monitor_initialization(self):
         """Test OperatorHealthMonitor initialization"""
+        from rhoshift.utils.health_monitor import OperatorHealthMonitor
 
         # Test default initialization
         monitor = OperatorHealthMonitor()
@@ -589,6 +631,7 @@ class TestLoggerFunctionalityPure:
 
     def test_logger_singleton_pattern(self):
         """Test logger singleton pattern"""
+        from rhoshift.logger.logger import Logger
 
         # Get multiple logger instances
         logger1 = Logger()
@@ -601,6 +644,7 @@ class TestLoggerFunctionalityPure:
 
     def test_logger_get_logger_functionality(self):
         """Test Logger.get_logger functionality"""
+        from rhoshift.logger.logger import Logger
 
         # Test different named loggers
         logger_a = Logger.get_logger("module_a")
@@ -618,6 +662,7 @@ class TestLoggerFunctionalityPure:
 
     def test_logger_method_existence(self):
         """Test that logger has all expected methods"""
+        from rhoshift.logger.logger import Logger
 
         logger = Logger.get_logger("test_methods")
 
@@ -635,6 +680,16 @@ class TestPackageIntegrityComplete:
         """Test that all modules import successfully"""
         # Main modules
         from rhoshift import main
+        from rhoshift.cli import args, commands
+        from rhoshift.logger import logger
+        from rhoshift.utils import (
+            constants,
+            health_monitor,
+            resilience,
+            stability_coordinator,
+            utils,
+        )
+        from rhoshift.utils.operator import cleanup, enhanced_operator, operator
 
         # All should be importable
         modules = [
@@ -657,6 +712,19 @@ class TestPackageIntegrityComplete:
 
     def test_key_classes_instantiable(self):
         """Test that key classes can be instantiated"""
+        from rhoshift.logger.logger import Logger
+        from rhoshift.utils.constants import (
+            OpenShiftOperatorInstallManifest,
+            OperatorConfig,
+        )
+        from rhoshift.utils.health_monitor import OperatorHealthMonitor
+        from rhoshift.utils.operator.enhanced_operator import (
+            EnhancedOpenShiftOperatorInstaller,
+        )
+        from rhoshift.utils.stability_coordinator import (
+            StabilityConfig,
+            StabilityCoordinator,
+        )
 
         # Test instantiation
         operator_config = OperatorConfig("test", "Test", "ns", "stable")
@@ -683,6 +751,20 @@ class TestPackageIntegrityComplete:
 
     def test_key_functions_exist_and_callable(self):
         """Test that key functions exist and are callable"""
+        from rhoshift.cli.args import (
+            build_config,
+            parse_args,
+            select_operators,
+            str_to_bool,
+        )
+        from rhoshift.cli.commands import install_operator, install_operators
+        from rhoshift.main import main
+        from rhoshift.utils.constants import get_dsc_manifest, get_dsci_manifest
+        from rhoshift.utils.operator.cleanup import cleanup, cleanup_all_operators
+        from rhoshift.utils.resilience import (
+            execute_resilient_operation,
+            run_preflight_checks,
+        )
 
         functions = [
             main,

@@ -88,7 +88,7 @@ async def run_command_async(
             else:
                 raise CommandTimeoutError(
                     f"Command timed out after {timeout} seconds: {cmd}"
-                )
+                ) from None
 
         except Exception as e:
             if attempt <= max_retries:
@@ -97,7 +97,7 @@ async def run_command_async(
                 )
                 await asyncio.sleep(retry_delay)
             else:
-                raise CommandExecutionError(-1, cmd, "", str(e))
+                raise CommandExecutionError(-1, cmd, "", str(e)) from e
 
     raise CommandExecutionError(-1, cmd, "", "Max retries exceeded")
 
@@ -143,7 +143,9 @@ async def _run_command_streaming(
         return_code = await asyncio.wait_for(process.wait(), timeout=timeout)
     except asyncio.TimeoutError:
         process.kill()
-        raise CommandTimeoutError(f"Command timed out after {timeout} seconds: {cmd}")
+        raise CommandTimeoutError(
+            f"Command timed out after {timeout} seconds: {cmd}"
+        ) from None
 
     return CommandResult(
         return_code=return_code,
@@ -167,12 +169,12 @@ async def _run_command_buffered(
     try:
         process = await asyncio.create_subprocess_shell(
             cmd,
-            stdout=(
-                asyncio.subprocess.PIPE if output_mode != OutputMode.DISCARD else None
-            ),
-            stderr=(
-                asyncio.subprocess.PIPE if output_mode != OutputMode.DISCARD else None
-            ),
+            stdout=asyncio.subprocess.PIPE
+            if output_mode != OutputMode.DISCARD
+            else None,
+            stderr=asyncio.subprocess.PIPE
+            if output_mode != OutputMode.DISCARD
+            else None,
             cwd=cwd,
             env=env,
             shell=shell,
@@ -200,7 +202,9 @@ async def _run_command_buffered(
         )
 
     except asyncio.TimeoutError:
-        raise CommandTimeoutError(f"Command timed out after {timeout} seconds: {cmd}")
+        raise CommandTimeoutError(
+            f"Command timed out after {timeout} seconds: {cmd}"
+        ) from None
 
 
 def run_command(
@@ -283,13 +287,20 @@ def apply_manifest(
         if logging.getLogger().isEnabledFor(logging.DEBUG):
             logging.debug(f"Manifest content:\n{manifest_content}")
 
+        # Filter kwargs to only include parameters accepted by run_command
+        run_command_kwargs = {
+            k: v
+            for k, v in kwargs.items()
+            if k in ["cwd", "env", "shell", "live_output"]
+        }
+
         rc, stdout, stderr = run_command(
             full_cmd,
             max_retries=max_retries,
             retry_delay=retry_delay,
             timeout=timeout,
             log_output=log_output,
-            **kwargs,
+            **run_command_kwargs,
         )
 
         if rc != 0:

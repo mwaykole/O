@@ -4,6 +4,8 @@ Comprehensive tests for rhoshift.cli.commands module.
 
 from unittest.mock import Mock, call, patch
 
+import pytest
+
 from rhoshift.cli.commands import install_operator, install_operators
 from rhoshift.utils.stability_coordinator import StabilityLevel
 

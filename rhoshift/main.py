@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 import sys
+
+sys.dont_write_bytecode = True
+
 from typing import Optional
 
 import pyfiglet
@@ -10,8 +13,6 @@ from rhoshift.logger.logger import Logger
 from rhoshift.utils.operator.cleanup import cleanup
 from rhoshift.utils.resilience import run_preflight_checks
 from rhoshift.utils.stability_coordinator import StabilityLevel
-
-sys.dont_write_bytecode = True
 
 logger = Logger.get_logger(__name__)
 
@@ -85,9 +86,9 @@ def main() -> Optional[int]:
             "rhoai_channel": args.rhoai_channel,
             "raw": args.raw,
             "create_dsc_dsci": args.deploy_rhoai_resources,
-            "kueue_management_state": (
-                args.kueue if args.kueue else ("Unmanaged" if args.all else None)
-            ),
+            "kueue_management_state": args.kueue
+            if args.kueue
+            else ("Unmanaged" if args.all else None),
             "stability_level": StabilityLevel.ENHANCED,
             "enable_health_monitoring": True,
             "enable_auto_recovery": True,
@@ -108,9 +109,7 @@ def main() -> Optional[int]:
             logger.error("No operators selected. Use --help for usage information.")
             return 1
 
-        selected_count = sum(
-            1 for value in selected_ops.values() if value and value is not False
-        )
+        selected_count = sum(1 for value in selected_ops.values() if value)
 
         # Enhanced installation with stability features
         installation_start_time = None

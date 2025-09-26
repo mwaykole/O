@@ -242,7 +242,31 @@ spec:
         try:
             # Run enhanced installation with full RHOAI logic
             result = enhanced_rhoai_installation(**rhoai_kwargs)
-            return (0, "RHOAI operator with DSC/DSCI installed successfully", "")
+
+            # Check if installation was successful
+            if isinstance(result, dict):
+                # Check if any operator failed
+                failed_operators = [
+                    name
+                    for name, info in result.items()
+                    if info.get("status") != "installed"
+                    and info.get("status") != "success"
+                ]
+
+                if failed_operators:
+                    error_msg = (
+                        f"RHOAI installation failed for: {', '.join(failed_operators)}"
+                    )
+                    return (1, "", error_msg)
+                else:
+                    return (
+                        0,
+                        "RHOAI operator with DSC/DSCI installed successfully",
+                        "",
+                    )
+            else:
+                return (0, "RHOAI operator with DSC/DSCI installed successfully", "")
+
         except Exception as e:
             error_msg = str(e)
             if "MonitoringNamespace is immutable" in error_msg:

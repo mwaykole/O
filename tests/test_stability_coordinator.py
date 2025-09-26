@@ -6,7 +6,6 @@ from unittest.mock import Mock, call, patch
 
 import pytest
 
-from rhoshift.utils.health_monitor import HealthStatus
 from rhoshift.utils.stability_coordinator import (
     StabilityConfig,
     StabilityCoordinator,
@@ -182,6 +181,8 @@ class TestStabilityCoordinator:
     @patch("rhoshift.utils.health_monitor.check_operator_health")
     def test_monitor_operator_health_enabled(self, mock_health_check):
         """Test monitoring operator health when enabled"""
+        from rhoshift.utils.health_monitor import HealthStatus
+
         mock_health_check.return_value = (HealthStatus.HEALTHY, {"status": "good"})
 
         config = StabilityConfig(enable_health_monitoring=True)
@@ -200,6 +201,7 @@ class TestStabilityCoordinator:
     @patch("rhoshift.utils.health_monitor.check_operator_health")
     def test_monitor_operator_health_disabled(self, mock_health_check):
         """Test monitoring operator health when disabled"""
+        from rhoshift.utils.health_monitor import HealthStatus
 
         config = StabilityConfig(enable_health_monitoring=False)
         coordinator = StabilityCoordinator(config)
@@ -280,6 +282,8 @@ class TestStabilityCoordinator:
     @patch("rhoshift.utils.health_monitor.monitor_operator_installation")
     def test_install_operator_with_health_monitoring(self, mock_monitor):
         """Test operator installation with health monitoring"""
+        from rhoshift.utils.health_monitor import HealthStatus
+
         mock_monitor.return_value = (True, HealthStatus.HEALTHY, {"status": "ready"})
 
         config = StabilityConfig(enable_health_monitoring=True)
@@ -432,6 +436,8 @@ class TestStabilityCoordinator:
             coordinator.record_installation_result(result)
 
         with patch.object(coordinator, "monitor_operator_health") as mock_monitor:
+            from rhoshift.utils.health_monitor import HealthStatus
+
             mock_monitor.return_value = (HealthStatus.HEALTHY, {"status": "good"})
 
             monitoring_results = coordinator.monitor_installed_operators()
@@ -450,6 +456,7 @@ class TestStabilityIntegration:
     @patch("time.time")
     def test_complete_stability_workflow(self, mock_time, mock_monitor, mock_preflight):
         """Test complete stability coordination workflow"""
+        from rhoshift.utils.health_monitor import HealthStatus
 
         # Setup mocks
         mock_time.side_effect = [1000.0, 1150.0]

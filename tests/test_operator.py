@@ -7,7 +7,9 @@ from unittest.mock import Mock, call, mock_open, patch
 import pytest
 
 from rhoshift.utils.constants import WaitTime
-from rhoshift.utils.operator.operator import OpenShiftOperatorInstaller
+from rhoshift.utils.operator.operator import (
+    OpenShiftOperatorInstaller,
+)
 
 
 class TestOpenShiftOperatorInstaller:
@@ -182,9 +184,7 @@ class TestOpenShiftOperatorInstaller:
         ) as mock_install:
             mock_install.return_value = (0, "Success", "")
 
-            result = (
-                OpenShiftOperatorInstaller.install_openshift_custom_metrics_autoscaler_operator()
-            )
+            result = OpenShiftOperatorInstaller.install_openshift_custom_metrics_autoscaler_operator()
 
             assert result[0] == 0
             mock_install.assert_called_once_with(
@@ -295,7 +295,8 @@ class TestOpenShiftOperatorInstaller:
         mock_force_delete.return_value = {"delete_dsc": {"status": "success"}}
 
         OpenShiftOperatorInstaller.deploy_dsc_dsci(
-            channel="stable", create_dsc_dsci=True  # Force recreation
+            channel="stable",
+            create_dsc_dsci=True,  # Force recreation
         )
 
         mock_force_delete.assert_called_once()
@@ -435,7 +436,7 @@ class TestOperatorManifestGeneration:
             assert "apiVersion: operators.coreos.com/v1alpha1" in manifest
             assert "kind: Subscription" in manifest
             assert f"name: {operator_name}" in manifest
-            assert f'namespace: {config["namespace"]}' in manifest
+            assert f"namespace: {config['namespace']}" in manifest
 
             # Required subscription fields
             assert "spec:" in manifest
@@ -519,7 +520,8 @@ class TestErrorHandlingAndEdgeCases:
         mock_wait.return_value = (False, "Installing", "Still installing")
 
         rc, stdout, stderr = OpenShiftOperatorInstaller.install_operator(
-            "serverless-operator", timeout=1  # Very short timeout
+            "serverless-operator",
+            timeout=1,  # Very short timeout
         )
 
         assert rc == 1

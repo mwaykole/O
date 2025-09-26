@@ -3,31 +3,10 @@ Core functionality tests for rhoshift package.
 This test suite focuses on the main functionality and integration points.
 """
 
-# Standard library imports
 import sys
 from unittest.mock import Mock, call, patch
 
-from rhoshift.cli.args import build_config, parse_args, select_operators
-from rhoshift.cli.commands import install_operator, install_operators
-from rhoshift.logger.logger import Logger
-
-# Local application imports
-from rhoshift.main import main
-from rhoshift.utils.constants import (
-    OpenShiftOperatorInstallManifest,
-    get_dsc_manifest,
-    get_dsci_manifest,
-)
-from rhoshift.utils.health_monitor import HealthStatus, check_operator_health
-from rhoshift.utils.operator.enhanced_operator import EnhancedOpenShiftOperatorInstaller
-from rhoshift.utils.operator.operator import OpenShiftOperatorInstaller
-from rhoshift.utils.resilience import execute_resilient_operation, run_preflight_checks
-from rhoshift.utils.stability_coordinator import (
-    StabilityConfig,
-    StabilityCoordinator,
-    StabilityLevel,
-)
-from rhoshift.utils.utils import apply_manifest, run_command
+import pytest
 
 
 class TestCoreImports:
@@ -36,6 +15,9 @@ class TestCoreImports:
     def test_import_main_modules(self):
         """Test importing main modules"""
         # These should not raise ImportError
+        from rhoshift.cli.args import build_config, parse_args, select_operators
+        from rhoshift.cli.commands import install_operator, install_operators
+        from rhoshift.main import main
 
         assert callable(main)
         assert callable(parse_args)
@@ -46,6 +28,22 @@ class TestCoreImports:
 
     def test_import_utils_modules(self):
         """Test importing utils modules"""
+        from rhoshift.utils.constants import (
+            OpenShiftOperatorInstallManifest,
+            get_dsc_manifest,
+            get_dsci_manifest,
+        )
+        from rhoshift.utils.health_monitor import HealthStatus, check_operator_health
+        from rhoshift.utils.resilience import (
+            execute_resilient_operation,
+            run_preflight_checks,
+        )
+        from rhoshift.utils.stability_coordinator import (
+            StabilityConfig,
+            StabilityCoordinator,
+            StabilityLevel,
+        )
+        from rhoshift.utils.utils import apply_manifest, run_command
 
         # Verify main classes and functions exist
         assert OpenShiftOperatorInstallManifest is not None
@@ -63,6 +61,10 @@ class TestCoreImports:
 
     def test_import_operator_modules(self):
         """Test importing operator modules"""
+        from rhoshift.utils.operator.enhanced_operator import (
+            EnhancedOpenShiftOperatorInstaller,
+        )
+        from rhoshift.utils.operator.operator import OpenShiftOperatorInstaller
 
         assert OpenShiftOperatorInstaller is not None
         assert EnhancedOpenShiftOperatorInstaller is not None
@@ -83,6 +85,8 @@ class TestEndToEndWorkflow:
             "",
         )
 
+        from rhoshift.utils.operator.operator import OpenShiftOperatorInstaller
+
         # Test serverless operator installation
         rc, stdout, stderr = OpenShiftOperatorInstaller.install_serverless_operator()
 
@@ -97,6 +101,8 @@ class TestEndToEndWorkflow:
         """Test main function workflow"""
         mock_preflight.return_value = (True, [])
         mock_install.return_value = True
+
+        from rhoshift.main import main
 
         with patch("sys.argv", ["script.py", "--serverless"]):
             result = main()
@@ -114,6 +120,8 @@ class TestEndToEndWorkflow:
         mock_dsci.return_value = (True, [])
         mock_install.return_value = True
 
+        from rhoshift.cli.commands import install_operators
+
         selected_ops = {"serverless": True, "rhoai": True}
         config = {"oc_binary": "oc", "rhoai_channel": "stable"}
 
@@ -128,6 +136,7 @@ class TestStabilityLevels:
 
     def test_stability_levels_exist(self):
         """Test that stability levels are properly defined"""
+        from rhoshift.utils.stability_coordinator import StabilityLevel
 
         assert StabilityLevel.BASIC.value == 1
         assert StabilityLevel.ENHANCED.value == 2
@@ -139,6 +148,7 @@ class TestStabilityLevels:
 
     def test_stability_config_creation(self):
         """Test stability configuration creation"""
+        from rhoshift.utils.stability_coordinator import StabilityConfig, StabilityLevel
 
         config = StabilityConfig(level=StabilityLevel.ENHANCED)
         assert config.level == StabilityLevel.ENHANCED
@@ -148,6 +158,11 @@ class TestStabilityLevels:
 
     def test_stability_coordinator_creation(self):
         """Test stability coordinator creation"""
+        from rhoshift.utils.stability_coordinator import (
+            StabilityConfig,
+            StabilityCoordinator,
+            StabilityLevel,
+        )
 
         config = StabilityConfig(level=StabilityLevel.ENHANCED)
         coordinator = StabilityCoordinator(config)
@@ -160,6 +175,7 @@ class TestOperatorConfigurations:
 
     def test_operator_manifest_generation(self):
         """Test that operator manifests can be generated"""
+        from rhoshift.utils.constants import OpenShiftOperatorInstallManifest
 
         manifest_gen = OpenShiftOperatorInstallManifest()
 
@@ -171,6 +187,7 @@ class TestOperatorConfigurations:
 
     def test_operator_list_functionality(self):
         """Test operator listing functionality"""
+        from rhoshift.utils.constants import OpenShiftOperatorInstallManifest
 
         operators = OpenShiftOperatorInstallManifest.list_operators()
         assert isinstance(operators, list)
@@ -179,6 +196,7 @@ class TestOperatorConfigurations:
 
     def test_dependency_resolution(self):
         """Test dependency resolution functionality"""
+        from rhoshift.utils.constants import OpenShiftOperatorInstallManifest
 
         # Test that Kueue includes cert-manager dependency
         resolved = OpenShiftOperatorInstallManifest.resolve_dependencies(
@@ -193,6 +211,7 @@ class TestDSCIManifests:
 
     def test_dsci_manifest_generation(self):
         """Test DSCI manifest generation"""
+        from rhoshift.utils.constants import get_dsci_manifest
 
         # Test default DSCI
         manifest = get_dsci_manifest()
@@ -210,6 +229,7 @@ class TestDSCIManifests:
 
     def test_dsc_manifest_generation(self):
         """Test DSC manifest generation"""
+        from rhoshift.utils.constants import get_dsc_manifest
 
         # Test default DSC
         manifest = get_dsc_manifest()
@@ -228,6 +248,7 @@ class TestHealthMonitoring:
 
     def test_health_status_enum(self):
         """Test HealthStatus enum"""
+        from rhoshift.utils.health_monitor import HealthStatus
 
         assert HealthStatus.HEALTHY.value == "healthy"
         assert HealthStatus.DEGRADED.value == "degraded"
@@ -237,6 +258,7 @@ class TestHealthMonitoring:
     @patch("rhoshift.utils.health_monitor.OperatorHealthMonitor")
     def test_check_operator_health_function(self, mock_monitor_class):
         """Test check_operator_health convenience function"""
+        from rhoshift.utils.health_monitor import HealthStatus, check_operator_health
 
         mock_monitor = Mock()
         mock_monitor.check_operator_health.return_value = (HealthStatus.HEALTHY, [])
@@ -254,6 +276,7 @@ class TestUtilityFunctions:
     @patch("subprocess.run")
     def test_run_command_basic(self, mock_run):
         """Test basic run_command functionality"""
+        from rhoshift.utils.utils import run_command
 
         # Mock the subprocess.run to return what we expect
         mock_process = Mock()
@@ -271,6 +294,7 @@ class TestUtilityFunctions:
     @patch("rhoshift.utils.utils.run_command")
     def test_apply_manifest_basic(self, mock_run_command):
         """Test basic apply_manifest functionality"""
+        from rhoshift.utils.utils import apply_manifest
 
         mock_run_command.return_value = (0, "applied", "")
 
@@ -285,6 +309,7 @@ class TestArgumentParsing:
 
     def test_parse_args_basic(self):
         """Test basic argument parsing"""
+        from rhoshift.cli.args import parse_args
 
         with patch("sys.argv", ["script.py", "--serverless"]):
             args = parse_args()
@@ -293,6 +318,7 @@ class TestArgumentParsing:
 
     def test_select_operators_functionality(self):
         """Test operator selection functionality"""
+        from rhoshift.cli.args import parse_args, select_operators
 
         with patch("sys.argv", ["script.py", "--all"]):
             args = parse_args()
@@ -303,6 +329,7 @@ class TestArgumentParsing:
 
     def test_build_config_functionality(self):
         """Test configuration building functionality"""
+        from rhoshift.cli.args import build_config, parse_args
 
         with patch("sys.argv", ["script.py", "--timeout", "600"]):
             args = parse_args()
@@ -318,6 +345,7 @@ class TestRealWorldScenarios:
     @patch("rhoshift.utils.utils.run_command")
     def test_operator_status_checking(self, mock_run_command):
         """Test checking operator status"""
+        from rhoshift.utils.operator.operator import OpenShiftOperatorInstaller
 
         mock_run_command.return_value = (0, "Succeeded", "")
 
@@ -329,6 +357,9 @@ class TestRealWorldScenarios:
     @patch("rhoshift.utils.utils.run_command")
     def test_dsci_conflict_detection(self, mock_run_command):
         """Test DSCI conflict detection"""
+        from rhoshift.utils.operator.enhanced_operator import (
+            EnhancedOpenShiftOperatorInstaller,
+        )
 
         mock_run_command.return_value = (0, "redhat-ods-monitoring", "")
 
@@ -349,6 +380,7 @@ class TestRealWorldScenarios:
     @patch("rhoshift.cli.commands.install_operators")
     def test_all_operators_installation_flow(self, mock_install, mock_preflight):
         """Test --all operators installation flow"""
+        from rhoshift.main import main
 
         mock_preflight.return_value = (True, [])
         mock_install.return_value = True
@@ -372,6 +404,7 @@ class TestErrorScenarios:
 
     def test_main_no_operators_selected(self):
         """Test main when no operators selected"""
+        from rhoshift.main import main
 
         with patch("sys.argv", ["script.py"]):
             result = main()
@@ -381,6 +414,7 @@ class TestErrorScenarios:
     @patch("rhoshift.utils.resilience.run_preflight_checks")
     def test_main_preflight_failure(self, mock_preflight):
         """Test main when preflight checks fail"""
+        from rhoshift.main import main
 
         mock_preflight.return_value = (False, ["Cluster not ready"])
 
@@ -392,6 +426,7 @@ class TestErrorScenarios:
     @patch("rhoshift.cli.commands.install_operator")
     def test_operator_installation_failure(self, mock_install):
         """Test operator installation failure"""
+        from rhoshift.main import main
 
         mock_install.return_value = False
 
@@ -406,6 +441,7 @@ class TestConfigurationHandling:
 
     def test_config_propagation(self):
         """Test that configuration is properly propagated"""
+        from rhoshift.cli.args import build_config, parse_args
 
         with patch(
             "sys.argv",
@@ -429,6 +465,7 @@ class TestConfigurationHandling:
 
     def test_rhoai_specific_config(self):
         """Test RHOAI-specific configuration handling"""
+        from rhoshift.cli.args import build_config, parse_args
 
         test_image = "test-image:latest"
         with patch(
@@ -451,6 +488,7 @@ class TestConfigurationHandling:
 
     def test_kueue_config_handling(self):
         """Test Kueue configuration handling"""
+        from rhoshift.cli.args import parse_args, select_operators
 
         # Test Kueue without value (default)
         with patch("sys.argv", ["script.py", "--kueue"]):
@@ -472,6 +510,7 @@ class TestManifestGeneration:
 
     def test_operator_manifest_contains_required_fields(self):
         """Test that generated operator manifests contain required fields"""
+        from rhoshift.utils.constants import OpenShiftOperatorInstallManifest
 
         manifest_gen = OpenShiftOperatorInstallManifest()
         manifest = manifest_gen.generate_operator_manifest("serverless-operator")
@@ -490,6 +529,7 @@ class TestManifestGeneration:
 
     def test_dsci_manifest_structure(self):
         """Test DSCI manifest structure"""
+        from rhoshift.utils.constants import get_dsci_manifest
 
         manifest = get_dsci_manifest()
 
@@ -508,6 +548,7 @@ class TestManifestGeneration:
 
     def test_dsc_manifest_structure(self):
         """Test DSC manifest structure"""
+        from rhoshift.utils.constants import get_dsc_manifest
 
         manifest = get_dsc_manifest()
 
@@ -531,6 +572,10 @@ class TestIntegrationPoints:
 
     def test_enhanced_operator_installer_integration(self):
         """Test enhanced operator installer integration"""
+        from rhoshift.utils.operator.enhanced_operator import (
+            EnhancedOpenShiftOperatorInstaller,
+        )
+        from rhoshift.utils.stability_coordinator import StabilityLevel
 
         installer = EnhancedOpenShiftOperatorInstaller(
             stability_level=StabilityLevel.ENHANCED
@@ -542,6 +587,7 @@ class TestIntegrationPoints:
     @patch("rhoshift.utils.utils.run_command")
     def test_preflight_checks_integration(self, mock_run_command):
         """Test preflight checks integration"""
+        from rhoshift.utils.resilience import run_preflight_checks
 
         mock_run_command.return_value = (0, "success", "")
 
@@ -552,6 +598,7 @@ class TestIntegrationPoints:
 
     def test_logger_integration(self):
         """Test logger integration"""
+        from rhoshift.logger.logger import Logger
 
         logger = Logger.get_logger(__name__)
         assert logger is not None

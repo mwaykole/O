@@ -465,7 +465,7 @@ class OpenShiftOperatorInstallManifest:
    ├─ Channel: {config.channel}
    ├─ Namespace: {config.namespace}
    ├─ Install Mode: {config.install_mode.value}
-   └─ {version_info.get('description', 'Latest stable version')}
+   └─ {version_info.get("description", "Latest stable version")}
 """
 
         summary += """

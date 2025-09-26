@@ -36,7 +36,7 @@ def cleanup():
         run_command(cmd, live_output=True, max_retries=0)
 
     except Exception as e:
-        raise RuntimeError(f"Failed to execute cleanup script: {str(e)}")
+        raise RuntimeError(f"Failed to execute cleanup script: {str(e)}") from e
 
 
 def cleanup_all_operators():

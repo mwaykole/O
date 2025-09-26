@@ -4,6 +4,8 @@ Comprehensive tests for rhoshift.utils.health_monitor module.
 
 from unittest.mock import Mock, patch
 
+import pytest
+
 from rhoshift.utils.health_monitor import (
     HealthCheck,
     HealthStatus,

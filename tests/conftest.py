@@ -118,8 +118,7 @@ def mock_logger():
 def temp_manifest_file():
     """Fixture to create a temporary manifest file"""
     with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".yaml") as f:
-        f.write(
-            """
+        f.write("""
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
@@ -130,8 +129,7 @@ spec:
   name: test-operator
   source: redhat-operators
   sourceNamespace: openshift-marketplace
-"""
-        )
+""")
         temp_file = f.name
 
     yield temp_file
