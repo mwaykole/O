@@ -13,3 +13,14 @@ ENV/
 # Project specific
 test.log
 *.log
+
+# Build artifacts
+dist/
+build/
+rhoshift.egg-info/
+*.egg-info/
+
+# Coverage reports
+.coverage
+htmlcov/
+.pytest_cache/
