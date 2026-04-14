@@ -24,9 +24,6 @@ class TestOpenShiftOperatorInstaller:
 
         # Check that standard operators are included
         expected_operators = [
-            "serverless-operator",
-            "servicemeshoperator",
-            "authorino-operator",
             "openshift-cert-manager-operator",
             "kueue-operator",
             "openshift-custom-metrics-autoscaler-operator",
@@ -56,7 +53,7 @@ class TestOpenShiftOperatorInstaller:
         mock_wait.return_value = (True, "Succeeded", "")
 
         rc, stdout, stderr = OpenShiftOperatorInstaller.install_operator(
-            "serverless-operator", oc_binary="oc", timeout=300
+            "openshift-cert-manager-operator", oc_binary="oc", timeout=300
         )
 
         assert rc == 0
@@ -71,7 +68,7 @@ class TestOpenShiftOperatorInstaller:
         mock_apply.side_effect = Exception("Manifest application failed")
 
         rc, stdout, stderr = OpenShiftOperatorInstaller.install_operator(
-            "serverless-operator", oc_binary="oc"
+            "openshift-cert-manager-operator", oc_binary="oc"
         )
 
         assert rc == 1
@@ -86,7 +83,7 @@ class TestOpenShiftOperatorInstaller:
         mock_wait.return_value = (False, "Installing", "Timeout")
 
         rc, stdout, stderr = OpenShiftOperatorInstaller.install_operator(
-            "serverless-operator", oc_binary="oc", timeout=60
+            "openshift-cert-manager-operator", oc_binary="oc", timeout=60
         )
 
         assert rc == 1
@@ -101,7 +98,7 @@ class TestOpenShiftOperatorInstaller:
         mock_wait.return_value = (True, "Succeeded", "")
 
         rc, stdout, stderr = OpenShiftOperatorInstaller.install_operator(
-            "serverless-operator",
+            "openshift-cert-manager-operator",
             oc_binary="/custom/oc",
             timeout=600,
             max_retries=5,
@@ -114,42 +111,6 @@ class TestOpenShiftOperatorInstaller:
         call_args = mock_apply.call_args
         assert call_args[1]["oc_binary"] == "/custom/oc"
         assert call_args[1]["timeout"] == 600
-
-    def test_install_serverless_operator(self):
-        """Test serverless operator installation"""
-        with patch.object(
-            OpenShiftOperatorInstaller, "install_operator"
-        ) as mock_install:
-            mock_install.return_value = (0, "Success", "")
-
-            result = OpenShiftOperatorInstaller.install_serverless_operator()
-
-            assert result[0] == 0
-            mock_install.assert_called_once_with("serverless-operator")
-
-    def test_install_servicemesh_operator(self):
-        """Test service mesh operator installation"""
-        with patch.object(
-            OpenShiftOperatorInstaller, "install_operator"
-        ) as mock_install:
-            mock_install.return_value = (0, "Success", "")
-
-            result = OpenShiftOperatorInstaller.install_servicemeshoperator()
-
-            assert result[0] == 0
-            mock_install.assert_called_once_with("servicemeshoperator")
-
-    def test_install_authorino_operator(self):
-        """Test Authorino operator installation"""
-        with patch.object(
-            OpenShiftOperatorInstaller, "install_operator"
-        ) as mock_install:
-            mock_install.return_value = (0, "Success", "")
-
-            result = OpenShiftOperatorInstaller.install_authorino_operator()
-
-            assert result[0] == 0
-            mock_install.assert_called_once_with("authorino-operator")
 
     def test_install_cert_manager_operator(self):
         """Test cert-manager operator installation"""
@@ -190,6 +151,34 @@ class TestOpenShiftOperatorInstaller:
             mock_install.assert_called_once_with(
                 "openshift-custom-metrics-autoscaler-operator"
             )
+
+    @patch("rhoshift.utils.utils.run_command")
+    def test_install_rhcl_operator(self, mock_run_command):
+        """Test RHCL operator installation with Kuadrant CR creation"""
+        with patch.object(
+            OpenShiftOperatorInstaller, "install_operator"
+        ) as mock_install:
+            mock_install.return_value = (0, "Success", "")
+            mock_run_command.return_value = (0, "created", "")
+
+            result = OpenShiftOperatorInstaller.install_rhcl_operator()
+
+            assert result[0] == 0
+            mock_install.assert_called_once_with("rhcl-operator")
+
+    @patch("rhoshift.utils.utils.run_command")
+    def test_install_lws_operator(self, mock_run_command):
+        """Test LWS operator installation with LeaderWorkerSetOperator CR creation"""
+        with patch.object(
+            OpenShiftOperatorInstaller, "install_operator"
+        ) as mock_install:
+            mock_install.return_value = (0, "Success", "")
+            mock_run_command.return_value = (0, "created", "")
+
+            result = OpenShiftOperatorInstaller.install_lws_operator()
+
+            assert result[0] == 0
+            mock_install.assert_called_once_with("leader-worker-set")
 
     @patch("rhoshift.utils.utils.apply_manifest")
     @patch("rhoshift.utils.utils.wait_for_resource_for_specific_status")
@@ -506,7 +495,7 @@ class TestErrorHandlingAndEdgeCases:
         mock_apply.side_effect = subprocess.TimeoutExpired("oc", 30)
 
         rc, stdout, stderr = OpenShiftOperatorInstaller.install_operator(
-            "serverless-operator"
+            "openshift-cert-manager-operator"
         )
 
         assert rc == 1
@@ -520,7 +509,7 @@ class TestErrorHandlingAndEdgeCases:
         mock_wait.return_value = (False, "Installing", "Still installing")
 
         rc, stdout, stderr = OpenShiftOperatorInstaller.install_operator(
-            "serverless-operator",
+            "openshift-cert-manager-operator",
             timeout=1,  # Very short timeout
         )
 
@@ -530,7 +519,7 @@ class TestErrorHandlingAndEdgeCases:
     def test_install_operator_with_empty_config(self):
         """Test operator installation with minimal configuration"""
         rc, stdout, stderr = OpenShiftOperatorInstaller.install_operator(
-            "serverless-operator"
+            "openshift-cert-manager-operator"
         )
 
         # Should not crash even with minimal config

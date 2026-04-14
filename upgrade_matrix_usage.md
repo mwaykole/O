@@ -40,7 +40,7 @@ run-upgrade-matrix 2.10 stable 2.12 stable
 
 ### Example with specific scenarios
 ```bash
-run-upgrade-matrix -s serverless -s rawdeployment 2.10 stable 2.12 stable
+run-upgrade-matrix -s rawdeployment 2.10 stable 2.12 stable
 ```
 
 ## Command Line Options
@@ -54,7 +54,7 @@ run-upgrade-matrix -s serverless -s rawdeployment 2.10 stable 2.12 stable
 ### Optional Arguments
 - `-h, --help`: Show help message and exit
 - `-s, --scenario SCENARIO`: Run specific scenario(s). Can be used multiple times.
-  - Available scenarios: `serverless`, `rawdeployment`, `serverless,rawdeployment`
+  - Available scenarios: `rawdeployment`
 - `--skip-cleanup`: Skip cleanup before each scenario (useful for debugging)
 - `--from-image IMAGE`: Custom source image path
   - Default: `quay.io/rhoai/rhoai-fbc-fragment:rhoai-{version}`
@@ -65,27 +65,13 @@ run-upgrade-matrix -s serverless -s rawdeployment 2.10 stable 2.12 stable
 
 ## Available Test Scenarios
 
-The tool supports three main scenarios that test different deployment configurations:
+The tool supports the following test scenario:
 
 ### 1. `rawdeployment`
 - **Description**: Tests basic RHOAI deployment without additional operators
 - **Configuration**: Raw serving enabled (`--raw=True`)
 - **Operators**: None (baseline RHOAI only)
 - **Use case**: Basic functionality testing
-
-### 2. `serverless`
-- **Description**: Tests RHOAI with serverless and service mesh capabilities
-- **Configuration**: Raw serving disabled (`--raw=False`)
-- **Operators**: Service Mesh, Serverless
-- **rhoshift flags**: `--serverless --servicemesh`
-- **Use case**: Serverless model serving scenarios
-
-### 3. `serverless,rawdeployment`
-- **Description**: Tests complete RHOAI stack with all supported operators
-- **Configuration**: Raw serving disabled (`--raw=False`)
-- **Operators**: Service Mesh, Authorino, Serverless
-- **rhoshift flags**: `--serverless --authorino --servicemesh`
-- **Use case**: Full-featured deployment testing
 
 ## Usage Examples
 
@@ -95,10 +81,7 @@ The tool supports three main scenarios that test different deployment configurat
 run-upgrade-matrix 2.10 stable 2.12 stable
 
 # Test specific scenario
-run-upgrade-matrix -s serverless 2.10 stable 2.12 stable
-
-# Test multiple specific scenarios
-run-upgrade-matrix -s serverless -s rawdeployment 2.10 stable 2.12 stable
+run-upgrade-matrix -s rawdeployment 2.10 stable 2.12 stable
 ```
 
 ### Advanced Examples
@@ -119,7 +102,7 @@ run-upgrade-matrix \
   2.10 stable 2.12 stable
 
 # Cross-channel upgrade with specific scenario
-run-upgrade-matrix -s serverless,rawdeployment 2.10 fast 2.12 stable
+run-upgrade-matrix -s rawdeployment 2.10 fast 2.12 stable
 ```
 
 ## Test Process Flow

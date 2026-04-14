@@ -22,15 +22,6 @@ def parse_args() -> argparse.Namespace:
     # Operator Selection
     operator_group = parser.add_argument_group("Operator Selection")
     operator_group.add_argument(
-        "--serverless", action="store_true", help="Install Serverless Operator"
-    )
-    operator_group.add_argument(
-        "--servicemesh", action="store_true", help="Install Service Mesh Operator"
-    )
-    operator_group.add_argument(
-        "--authorino", action="store_true", help="Install Authorino Operator"
-    )
-    operator_group.add_argument(
         "--cert-manager",
         action="store_true",
         help="Install cert-manager Operator (latest v1.16.1)",
@@ -51,12 +42,22 @@ def parse_args() -> argparse.Namespace:
         help="Install KEDA (Custom Metrics Autoscaler) Operator",
     )
     operator_group.add_argument(
+        "--rhcl",
+        action="store_true",
+        help="Install RHCL (Red Hat Connectivity Link) Operator and create Kuadrant CR",
+    )
+    operator_group.add_argument(
+        "--lws",
+        action="store_true",
+        help="Install LWS (Leader Worker Set) Operator and create LeaderWorkerSetOperator CR",
+    )
+    operator_group.add_argument(
         "--all", action="store_true", help="Install all operators"
     )
     operator_group.add_argument(
         "--cleanup",
         action="store_true",
-        help="clean up all RHOAI, serverless , servishmesh , Authorino Operator",
+        help="clean up all RHOAI related operators",
     )
     operator_group.add_argument(
         "--deploy-rhoai-resources", action="store_true", help="creates dsc and dsci"
@@ -132,21 +133,19 @@ def select_operators(args: argparse.Namespace) -> Dict[str, bool]:
     """Determine which operators to install based on args"""
     if args.all:
         return {
-            "serverless": True,
-            "servicemesh": True,
-            "authorino": True,
             "cert-manager": True,
             "rhoai": True,
             "kueue": True,
             "keda": True,
+            "rhcl": True,
+            "lws": True,
         }
 
     return {
-        "serverless": args.serverless,
-        "servicemesh": args.servicemesh,
-        "authorino": args.authorino,
         "cert-manager": getattr(args, "cert_manager", False),
         "rhoai": args.rhoai,
         "kueue": args.kueue,
         "keda": args.keda,
+        "rhcl": args.rhcl,
+        "lws": args.lws,
     }

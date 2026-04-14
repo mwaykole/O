@@ -81,13 +81,12 @@ def mock_oc_command():
 def selected_operators_all():
     """Fixture for all operators selected"""
     return {
-        "serverless": True,
-        "servicemesh": True,
-        "authorino": True,
         "cert-manager": True,
         "kueue": True,
         "keda": True,
         "rhoai": True,
+        "rhcl": True,
+        "lws": True,
     }
 
 
@@ -95,13 +94,12 @@ def selected_operators_all():
 def selected_operators_partial():
     """Fixture for partial operator selection"""
     return {
-        "serverless": True,
-        "servicemesh": False,
-        "authorino": True,
         "cert-manager": False,
         "kueue": True,
         "keda": False,
         "rhoai": False,
+        "rhcl": False,
+        "lws": False,
     }
 
 

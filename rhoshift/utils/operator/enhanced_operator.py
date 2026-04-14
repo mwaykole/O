@@ -81,11 +81,6 @@ class EnhancedOpenShiftOperatorInstaller(OpenShiftOperatorInstaller):
             return 1, "", error_msg
 
     @classmethod
-    def install_serverless_operator_enhanced(cls, **kwargs) -> Tuple[int, str, str]:
-        """Enhanced serverless operator installation with stability features."""
-        return cls.install_operator_with_stability("serverless-operator", **kwargs)
-
-    @classmethod
     def install_keda_operator_enhanced(cls, **kwargs) -> Tuple[int, str, str]:
         """Enhanced KEDA operator installation with KedaController creation and stability."""
 
@@ -202,6 +197,22 @@ spec:
                 time.sleep(5)
 
         return False
+
+    @classmethod
+    def install_rhcl_operator_enhanced(cls, **kwargs) -> Tuple[int, str, str]:
+        """Enhanced RHCL operator installation with Kuadrant CR creation."""
+        from rhoshift.utils.operator.operator import OpenShiftOperatorInstaller
+
+        rhcl_kwargs = {k: v for k, v in kwargs.items() if k != "stability_level"}
+        return OpenShiftOperatorInstaller.install_rhcl_operator(**rhcl_kwargs)
+
+    @classmethod
+    def install_lws_operator_enhanced(cls, **kwargs) -> Tuple[int, str, str]:
+        """Enhanced LWS operator installation with LeaderWorkerSetOperator CR creation."""
+        from rhoshift.utils.operator.operator import OpenShiftOperatorInstaller
+
+        lws_kwargs = {k: v for k, v in kwargs.items() if k != "stability_level"}
+        return OpenShiftOperatorInstaller.install_lws_operator(**lws_kwargs)
 
     @classmethod
     def install_rhoai_operator_enhanced(cls, **kwargs) -> Tuple[int, str, str]:
@@ -430,20 +441,18 @@ def install_operators_with_enhanced_stability(
 
     # Define enhanced installation mapping
     enhanced_installers = {
-        "serverless": EnhancedOpenShiftOperatorInstaller.install_serverless_operator_enhanced,
         "keda": EnhancedOpenShiftOperatorInstaller.install_keda_operator_enhanced,
+        "rhcl": EnhancedOpenShiftOperatorInstaller.install_rhcl_operator_enhanced,
+        "lws": EnhancedOpenShiftOperatorInstaller.install_lws_operator_enhanced,
         "rhoai": EnhancedOpenShiftOperatorInstaller.install_rhoai_operator_enhanced,
-        # Add other operators as needed
     }
 
-    # Map CLI names to actual operator names
     cli_to_operator_map = {
-        "serverless": "serverless-operator",
-        "servicemesh": "servicemeshoperator",
-        "authorino": "authorino-operator",
         "cert-manager": "openshift-cert-manager-operator",
         "kueue": "kueue-operator",
         "keda": "openshift-custom-metrics-autoscaler-operator",
+        "rhcl": "rhcl-operator",
+        "lws": "leader-worker-set",
         "rhoai": "opendatahub-operator",
     }
 
@@ -495,28 +504,3 @@ def install_operators_with_enhanced_stability(
     )
 
     return success_count == total_count
-
-
-# Integration helper for existing code
-def enhance_existing_operator_installation():
-    """
-    Example showing how to enhance existing operator.py methods.
-
-    This would typically be done by modifying the existing methods
-    to use the stability coordinator.
-    """
-
-    # Example of enhancing the existing install_serverless_operator method:
-    original_install_serverless = OpenShiftOperatorInstaller.install_serverless_operator
-
-    @classmethod
-    def enhanced_install_serverless_operator(cls, **kwargs):
-        """Enhanced version of install_serverless_operator."""
-        return EnhancedOpenShiftOperatorInstaller.install_serverless_operator_enhanced(
-            **kwargs
-        )
-
-    # Replace the original method (this would be done in operator.py)
-    # OpenShiftOperatorInstaller.install_serverless_operator = enhanced_install_serverless_operator
-
-    logger.info("✅ Enhanced operator installation methods integrated")

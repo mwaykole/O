@@ -55,34 +55,11 @@ class OpenShiftOperatorInstallManifest:
     }
 
     OPERATORS = {
-        "serverless-operator": OperatorConfig(
-            name="serverless-operator",
-            display_name="OpenShift Serverless Operator",
-            namespace="openshift-serverless",
-            channel="stable",
-            install_mode=InstallMode.ALL_NAMESPACES,
-        ),
-        "servicemeshoperator": OperatorConfig(
-            name="servicemeshoperator",
-            display_name="Red Hat OpenShift Service Mesh",
-            namespace="openshift-operators",
-            channel="stable",
-            install_mode=InstallMode.ALL_NAMESPACES,
-            create_namespace=False,  # Uses existing openshift-operators
-        ),
-        "authorino-operator": OperatorConfig(
-            name="authorino-operator",
-            display_name="Authorino Operator",
-            namespace="openshift-operators",
-            channel="stable",
-            install_mode=InstallMode.ALL_NAMESPACES,
-            create_namespace=False,
-        ),
         "kueue-operator": OperatorConfig(
             name="kueue-operator",
             display_name="Red Hat build of Kueue",
             namespace="openshift-kueue-operator",
-            channel="stable-v1.0",
+            channel="stable-v1.3",
             install_mode=InstallMode.ALL_NAMESPACES,
             additional_resources=[],  # Will be populated with dependencies
             post_install_hook="verify_cert_manager_dependency",
@@ -91,10 +68,10 @@ class OpenShiftOperatorInstallManifest:
             name="openshift-cert-manager-operator",
             display_name="Red Hat build of cert-manager Operator for Red Hat OpenShift",
             namespace="cert-manager-operator",
-            channel="stable-v1",  # This points to latest (currently 1.16.1)
-            install_mode=InstallMode.ALL_NAMESPACES,
-            csv_name_prefix="cert-manager-operator",  # CSV uses different name prefix
-            starting_csv=None,  # Let it use the latest version automatically
+            channel="stable-v1",
+            install_mode=InstallMode.OWN_NAMESPACE,
+            csv_name_prefix="cert-manager-operator",
+            starting_csv=None,
         ),
         "openshift-custom-metrics-autoscaler-operator": OperatorConfig(
             name="openshift-custom-metrics-autoscaler-operator",
@@ -102,8 +79,8 @@ class OpenShiftOperatorInstallManifest:
             namespace="openshift-keda",
             channel="stable",
             catalog_source=CatalogSource.REDHAT_OPERATORS,
-            install_mode=InstallMode.ALL_NAMESPACES,
-            csv_name_prefix="custom-metrics-autoscaler",  # CSV uses shorter name prefix
+            install_mode=InstallMode.OWN_NAMESPACE,
+            csv_name_prefix="custom-metrics-autoscaler",
             post_install_hook="create_keda_controller",
         ),
         "opendatahub-operator": OperatorConfig(
@@ -114,6 +91,23 @@ class OpenShiftOperatorInstallManifest:
             catalog_source=CatalogSource.COMMUNITY_OPERATORS,
             install_mode=InstallMode.ALL_NAMESPACES,
             create_namespace=False,  # Uses existing openshift-operators
+        ),
+        "rhcl-operator": OperatorConfig(
+            name="rhcl-operator",
+            display_name="Red Hat Connectivity Link",
+            namespace="openshift-operators",
+            channel="stable",
+            install_mode=InstallMode.ALL_NAMESPACES,
+            create_namespace=False,
+            post_install_hook="create_kuadrant",
+        ),
+        "leader-worker-set": OperatorConfig(
+            name="leader-worker-set",
+            display_name="Red Hat build of Leader Worker Set",
+            namespace="openshift-lws-operator",
+            channel="stable-v1.0",
+            install_mode=InstallMode.OWN_NAMESPACE,
+            post_install_hook="create_lws_operator",
         ),
     }
 
@@ -186,12 +180,47 @@ class OpenShiftOperatorInstallManifest:
             return False, "Invalid JSON response"
 
     @classmethod
-    def generate_subscription(cls, config: OperatorConfig) -> Dict[str, Any]:
+    def resolve_latest_channel(
+        cls, package_name: str, oc_binary: str = "oc"
+    ) -> Optional[str]:
+        """Query the cluster for the default (latest) channel of a package.
+
+        Returns the defaultChannel from the PackageManifest, or None if
+        the lookup fails (e.g. disconnected cluster, missing package).
+        """
+        from rhoshift.utils.utils import run_command
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        cmd = (
+            f"{oc_binary} get packagemanifest {package_name} "
+            "-o jsonpath='{.status.defaultChannel}'"
+        )
+        rc, stdout, stderr = run_command(cmd, max_retries=1, log_output=False)
+        if rc == 0 and stdout.strip().strip("'"):
+            channel = stdout.strip().strip("'")
+            logger.info(
+                f"Resolved latest channel for {package_name}: {channel}"
+            )
+            return channel
+
+        logger.warning(
+            f"Could not resolve latest channel for {package_name}, "
+            f"falling back to configured default"
+        )
+        return None
+
+    @classmethod
+    def generate_subscription(
+        cls, config: OperatorConfig, oc_binary: str = "oc"
+    ) -> Dict[str, Any]:
         """Generate Subscription manifest."""
-        # Use csv_name_prefix for subscription name if available, otherwise use config.name
         subscription_name = (
             config.csv_name_prefix if config.csv_name_prefix else config.name
         )
+
+        channel = cls.resolve_latest_channel(config.name, oc_binary) or config.channel
 
         manifest = {
             "apiVersion": "operators.coreos.com/v1alpha1",
@@ -204,15 +233,14 @@ class OpenShiftOperatorInstallManifest:
                 },
             },
             "spec": {
-                "channel": config.channel,
+                "channel": channel,
                 "installPlanApproval": config.install_plan_approval,
-                "name": config.name,  # This is the package name in the catalog
+                "name": config.name,
                 "source": config.catalog_source.value,
                 "sourceNamespace": cls.MARKETPLACE_NAMESPACE,
             },
         }
 
-        # Add starting CSV if specified
         if config.starting_csv:
             manifest["spec"]["startingCSV"] = config.starting_csv
 
@@ -270,7 +298,7 @@ class OpenShiftOperatorInstallManifest:
             manifests.append(cls.generate_operator_group(config))
 
         # Add subscription
-        manifests.append(cls.generate_subscription(config))
+        manifests.append(cls.generate_subscription(config, oc_binary))
 
         # Add any additional resources
         if config.additional_resources:
@@ -404,39 +432,16 @@ class OpenShiftOperatorInstallManifest:
         """
         Ensure all operators are configured to use the latest available versions.
         Returns a dictionary of operators and their target versions.
+        Channels are resolved dynamically from the cluster's PackageManifest.
         """
-        version_info = {
-            "openshift-cert-manager-operator": {
-                "channel": "stable-v1",  # Always latest in stable-v1 channel
-                "expected_version": "1.16.1",  # Current latest as of implementation
-                "description": "Red Hat build of cert-manager - latest stable version",
-            },
-            "serverless-operator": {
-                "channel": "stable",
+        version_info = {}
+        for op_key, config in cls.OPERATORS.items():
+            resolved = cls.resolve_latest_channel(config.name) or config.channel
+            version_info[op_key] = {
+                "channel": resolved,
                 "expected_version": "latest",
-                "description": "OpenShift Serverless - latest stable version",
-            },
-            "kueue-operator": {
-                "channel": "stable-v1.0",
-                "expected_version": "latest",
-                "description": "Red Hat build of Kueue - latest v1.0 stable",
-            },
-            "openshift-custom-metrics-autoscaler-operator": {
-                "channel": "stable",
-                "expected_version": "latest",
-                "description": "KEDA - latest stable version (from redhat-operators)",
-            },
-            "servicemeshoperator": {
-                "channel": "stable",
-                "expected_version": "latest",
-                "description": "Service Mesh - latest stable version",
-            },
-            "authorino-operator": {
-                "channel": "stable",
-                "expected_version": "latest",
-                "description": "Authorino - latest stable version",
-            },
-        }
+                "description": f"{config.display_name} - latest from {resolved}",
+            }
         return version_info
 
     @classmethod
@@ -462,7 +467,7 @@ class OpenShiftOperatorInstallManifest:
             summary += f"""
 🔧 {config.display_name}
    ├─ Operator: {op_key}
-   ├─ Channel: {config.channel}
+   ├─ Channel: {version_info.get("channel", config.channel)} (resolved from cluster)
    ├─ Namespace: {config.namespace}
    ├─ Install Mode: {config.install_mode.value}
    └─ {version_info.get("description", "Latest stable version")}
@@ -490,19 +495,6 @@ class OpenShiftOperatorInstallManifest:
    rhoshift --all
 """
         return summary
-
-    # Backward compatibility - generate specific manifests on-demand
-    @property
-    def SERVERLESS_MANIFEST(self) -> str:
-        return self.generate_operator_manifest("serverless-operator")
-
-    @property
-    def SERVICEMESH_MANIFEST(self) -> str:
-        return self.generate_operator_manifest("servicemeshoperator")
-
-    @property
-    def AUTHORINO_MANIFEST(self) -> str:
-        return self.generate_operator_manifest("authorino-operator")
 
     @property
     def KUEUE_MANIFEST(self) -> str:

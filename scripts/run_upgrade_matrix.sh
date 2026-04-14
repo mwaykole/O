@@ -168,12 +168,6 @@ run_tests() {
         "rawdeployment")
             dependent_operators=""
             ;;
-        "serverless,rawdeployment")
-            dependent_operators='servicemeshoperator,authorino-operator,serverless-operator'
-            ;;
-        "serverless")
-            dependent_operators='servicemeshoperator,serverless-operator'
-            ;;
         *)
             error_exit "Unknown scenario: $scenario"
             ;;
@@ -234,14 +228,14 @@ print_usage() {
     echo "Options:"
     echo "  -h, --help                 Show this help message"
     echo "  -s, --scenario SCENARIO    Run specific scenario(s). Can be used multiple times."
-    echo "                            Available scenarios: serverless, rawdeployment, serverless,rawdeployment"
+    echo "                            Available scenarios: rawdeployment"
     echo "  --skip-cleanup            Skip cleanup before each scenario"
     echo "  --from-image IMAGE        Custom source image path (default: quay.io/rhoai/rhoai-fbc-fragment:rhoai-{version})"
     echo "  --to-image IMAGE          Custom target image path (default: quay.io/rhoai/rhoai-fbc-fragment:rhoai-{version})"
     echo "  -w, --wait-time SECONDS   Set the wait time in seconds (default: 1200) after upgrade"
     echo ""
     echo "Example:"
-    echo "  $0 -s serverless -s rawdeployment 2.10 stable 2.12 stable"
+    echo "  $0 -s rawdeployment 2.10 stable 2.12 stable"
     echo "  $0 --skip-cleanup 2.10 stable 2.12 stable"
     echo "  $0 --from-image custom.registry/rhoai:1.5.0 --to-image custom.registry/rhoai:1.6.0 2.10 stable 2.12 stable"
     echo "  $0 -w 1800 2.10 stable 2.12 stable"
@@ -315,8 +309,6 @@ log "INFO" "Using source image: $fromimage"
 log "INFO" "Using target image: $toimage"
 
 declare -A scenarios=(
-    ["serverless,rawdeployment"]="--serverless --authorino --servicemesh"
-    ["serverless"]="--serverless --servicemesh"
     ["rawdeployment"]=""
 )
 

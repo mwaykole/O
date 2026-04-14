@@ -22,7 +22,7 @@ A comprehensive, enterprise-grade toolkit for managing OpenShift operators with 
 ## ✨ Features
 
 ### 🚀 **Core Functionality**
-- **7 Enterprise Operators**: Complete operator stack for modern OpenShift deployments
+- **6 Enterprise Operators**: Complete operator stack for modern OpenShift deployments
 - **Enhanced Stability System**: 3-tier stability levels with comprehensive error handling
 - **Automatic Dependency Resolution**: Smart installation order with dependency detection
 - **Pre-flight Validation**: Cluster readiness and permission verification
@@ -40,6 +40,8 @@ A comprehensive, enterprise-grade toolkit for managing OpenShift operators with 
 - **RHOAI DSC/DSCI Management**: Complete DataScienceCluster lifecycle control
 - **Kueue Management States**: Dynamic DSC integration with Managed/Unmanaged modes
 - **KedaController Automation**: Automatic KEDA controller creation and validation
+- **Kuadrant Automation**: Automatic Kuadrant CR creation for RHCL
+- **LeaderWorkerSet Automation**: Automatic LeaderWorkerSetOperator CR creation for LWS
 - **Configurable Timeouts**: Flexible timing control for enterprise environments
 
 ## 🛡️ Enhanced Stability Features
@@ -75,12 +77,11 @@ RHOShift includes a comprehensive stability system designed for enterprise deplo
 
 | Operator | Package | Namespace | Channel | Dependencies |
 |----------|---------|-----------|---------|--------------|
-| **OpenShift Serverless** | `serverless-operator` | `openshift-serverless` | `stable` | None |
-| **Service Mesh** | `servicemeshoperator` | `openshift-operators` | `stable` | None |
-| **Authorino** | `authorino-operator` | `openshift-operators` | `stable` | None |
 | **cert-manager** | `openshift-cert-manager-operator` | `cert-manager-operator` | `stable-v1` | None |
 | **Kueue** | `kueue-operator` | `openshift-kueue-operator` | `stable-v1.0` | cert-manager |
 | **KEDA** | `openshift-custom-metrics-autoscaler-operator` | `openshift-keda` | `stable` | None |
+| **RHCL** | `rhcl-operator` | `openshift-operators` | `stable` | None |
+| **LWS** | `leader-worker-set` | `openshift-lws-operator` | `stable-v1.0` | None |
 | **RHOAI/ODH** | `opendatahub-operator` | `openshift-operators` | `stable` | None |
 
 ## 🚀 Installation
@@ -103,10 +104,10 @@ rhoshift --summary
 ### **Basic Commands**
 ```bash
 # Install single operator with enhanced stability
-rhoshift --serverless
+rhoshift --cert-manager
 
 # Install multiple operators with batch optimization
-rhoshift --serverless --servicemesh --authorino
+rhoshift --cert-manager --keda --kueue --rhcl --lws
 
 # Install with dependency resolution (Kueue + cert-manager)
 rhoshift --kueue
@@ -164,11 +165,8 @@ rhoshift --all --kueue Managed \
   --deploy-rhoai-resources \
   --timeout=900
 
-# High-availability setup with service mesh
-rhoshift --serverless --servicemesh --keda --authorino
-
 # Development environment setup
-rhoshift --cert-manager --kueue Unmanaged --keda
+rhoshift --cert-manager --kueue Unmanaged --keda --rhcl --lws
 ```
 
 ### **Custom Configuration**
@@ -180,7 +178,7 @@ rhoshift --all \
   --retry-delay=15
 
 # Custom oc binary path
-rhoshift --serverless --oc-binary=/usr/local/bin/oc
+rhoshift --cert-manager --oc-binary=/usr/local/bin/oc
 
 # Verbose output for debugging
 rhoshift --kueue Managed --verbose
@@ -240,13 +238,12 @@ rhoshift --rhoai --kueue Managed --deploy-rhoai-resources
 ### **CLI Options**
 ```bash
 Operator Selection:
-  --serverless          Install OpenShift Serverless Operator
-  --servicemesh         Install Service Mesh Operator
-  --authorino           Install Authorino Operator
   --cert-manager        Install cert-manager Operator
   --rhoai               Install RHOAI Operator
   --kueue [{Managed,Unmanaged}]  Install Kueue with DSC integration
   --keda                Install KEDA (Custom Metrics Autoscaler)
+  --rhcl                Install RHCL (Red Hat Connectivity Link) and create Kuadrant CR
+  --lws                 Install LWS (Leader Worker Set) and create LeaderWorkerSetOperator CR
   --all                 Install all operators
   --cleanup             Clean up all operators
   --summary             Show operator summary

@@ -64,14 +64,14 @@ class TestOpenShiftOperatorInstallManifest:
         operators = OpenShiftOperatorInstallManifest.list_operators()
 
         assert isinstance(operators, list)
-        assert len(operators) > 0
+        assert len(operators) == 6
         expected_operators = [
-            "serverless-operator",
-            "servicemeshoperator",
-            "authorino-operator",
-            "openshift-cert-manager-operator",
             "kueue-operator",
+            "openshift-cert-manager-operator",
             "openshift-custom-metrics-autoscaler-operator",
+            "opendatahub-operator",
+            "rhcl-operator",
+            "leader-worker-set",
         ]
 
         for op in expected_operators:
@@ -79,15 +79,6 @@ class TestOpenShiftOperatorInstallManifest:
 
     def test_get_operator_config(self):
         """Test getting configuration for specific operators"""
-        # Test serverless operator
-        config = OpenShiftOperatorInstallManifest.get_operator_config(
-            "serverless-operator"
-        )
-        assert config.name == "serverless-operator"
-        assert config.namespace == "openshift-serverless"
-        assert config.channel == "stable"
-        assert config.display_name == "OpenShift Serverless Operator"
-
         # Test cert-manager operator
         config = OpenShiftOperatorInstallManifest.get_operator_config(
             "openshift-cert-manager-operator"
@@ -100,6 +91,28 @@ class TestOpenShiftOperatorInstallManifest:
         config = OpenShiftOperatorInstallManifest.get_operator_config("kueue-operator")
         assert config.name == "kueue-operator"
 
+        # Test opendatahub operator
+        config = OpenShiftOperatorInstallManifest.get_operator_config(
+            "opendatahub-operator"
+        )
+        assert config.name == "opendatahub-operator"
+
+        # Test RHCL operator
+        config = OpenShiftOperatorInstallManifest.get_operator_config("rhcl-operator")
+        assert config.name == "rhcl-operator"
+        assert config.display_name == "Red Hat Connectivity Link"
+        assert config.namespace == "openshift-operators"
+        assert config.channel == "stable"
+
+        # Test Leader Worker Set operator
+        config = OpenShiftOperatorInstallManifest.get_operator_config(
+            "leader-worker-set"
+        )
+        assert config.name == "leader-worker-set"
+        assert config.display_name == "Red Hat build of Leader Worker Set"
+        assert config.namespace == "openshift-lws-operator"
+        assert config.channel == "stable-v1.0"
+
     def test_get_operator_config_invalid(self):
         """Test getting configuration for invalid operator"""
         with pytest.raises(ValueError):
@@ -109,7 +122,7 @@ class TestOpenShiftOperatorInstallManifest:
         """Test operator compatibility validation"""
         # Test compatible operators
         warnings = OpenShiftOperatorInstallManifest.validate_operator_compatibility(
-            ["serverless-operator", "servicemeshoperator"]
+            ["kueue-operator", "openshift-cert-manager-operator"]
         )
         assert isinstance(warnings, list)
 
@@ -119,9 +132,16 @@ class TestOpenShiftOperatorInstallManifest:
 
         # Test with single operator
         warnings = OpenShiftOperatorInstallManifest.validate_operator_compatibility(
-            ["serverless-operator"]
+            ["kueue-operator"]
         )
         assert isinstance(warnings, list)
+
+        # RHCL and LWS are valid, known operators
+        warnings = OpenShiftOperatorInstallManifest.validate_operator_compatibility(
+            ["rhcl-operator", "leader-worker-set"]
+        )
+        assert isinstance(warnings, list)
+        assert not any("Unknown operator" in w for w in warnings)
 
     def test_resolve_dependencies(self):
         """Test dependency resolution"""
@@ -137,34 +157,49 @@ class TestOpenShiftOperatorInstallManifest:
 
         # Test with operators that have no dependencies
         resolved = OpenShiftOperatorInstallManifest.resolve_dependencies(
-            ["serverless-operator"]
+            ["openshift-custom-metrics-autoscaler-operator"]
         )
-        assert resolved == ["serverless-operator"]
+        assert resolved == ["openshift-custom-metrics-autoscaler-operator"]
+
+        resolved = OpenShiftOperatorInstallManifest.resolve_dependencies(
+            ["rhcl-operator"]
+        )
+        assert resolved == ["rhcl-operator"]
+
+        resolved = OpenShiftOperatorInstallManifest.resolve_dependencies(
+            ["leader-worker-set"]
+        )
+        assert resolved == ["leader-worker-set"]
+
+        resolved = OpenShiftOperatorInstallManifest.resolve_dependencies(
+            ["rhcl-operator", "leader-worker-set"]
+        )
+        assert resolved == ["rhcl-operator", "leader-worker-set"]
 
         # Test with multiple operators
         resolved = OpenShiftOperatorInstallManifest.resolve_dependencies(
-            ["serverless-operator", "kueue-operator"]
+            ["openshift-custom-metrics-autoscaler-operator", "kueue-operator"]
         )
         assert "openshift-cert-manager-operator" in resolved
-        assert "serverless-operator" in resolved
+        assert "openshift-custom-metrics-autoscaler-operator" in resolved
         assert "kueue-operator" in resolved
 
     def test_generate_operator_manifest(self):
         """Test operator manifest generation"""
         manifest_gen = OpenShiftOperatorInstallManifest()
 
-        # Test serverless operator manifest
-        manifest = manifest_gen.generate_operator_manifest("serverless-operator")
+        # Test kueue operator manifest
+        manifest = manifest_gen.generate_operator_manifest("kueue-operator")
         assert "apiVersion: operators.coreos.com/v1alpha1" in manifest
         assert "kind: Subscription" in manifest
-        assert "name: serverless-operator" in manifest
-        assert "namespace: openshift-serverless" in manifest
+        assert "name: kueue-operator" in manifest
+        assert "namespace: openshift-kueue-operator" in manifest
 
         # Test with custom oc_binary
         manifest = manifest_gen.generate_operator_manifest(
-            "serverless-operator", "custom-oc"
+            "kueue-operator", "custom-oc"
         )
-        assert "serverless-operator" in manifest
+        assert "kueue-operator" in manifest
 
     def test_generate_namespace_manifest(self):
         """Test namespace manifest generation"""
@@ -184,17 +219,13 @@ class TestOpenShiftOperatorInstallManifest:
         """Test manifest properties"""
         manifest_gen = OpenShiftOperatorInstallManifest()
 
-        # Test serverless manifest property
-        serverless_manifest = manifest_gen.SERVERLESS_MANIFEST
-        assert "serverless-operator" in serverless_manifest
+        # Test kueue manifest property
+        kueue_manifest = manifest_gen.KUEUE_MANIFEST
+        assert "kueue-operator" in kueue_manifest
 
-        # Test servicemesh manifest property
-        servicemesh_manifest = manifest_gen.SERVICEMESH_MANIFEST
-        assert "servicemeshoperator" in servicemesh_manifest
-
-        # Test authorino manifest property
-        authorino_manifest = manifest_gen.AUTHORINO_MANIFEST
-        assert "authorino-operator" in authorino_manifest
+        # Test KEDA manifest property
+        keda_manifest = manifest_gen.KEDA_MANIFEST
+        assert "openshift-custom-metrics-autoscaler-operator" in keda_manifest
 
         # Test cert-manager manifest property
         cert_manager_manifest = manifest_gen.CERT_MANAGER_MANIFEST

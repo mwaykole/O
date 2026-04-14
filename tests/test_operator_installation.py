@@ -14,68 +14,23 @@ class TestInstallOperator:
     """Test cases for install_operator function"""
 
     @patch(
-        "rhoshift.utils.operator.operator.OpenShiftOperatorInstaller.install_serverless_operator"
-    )
-    def test_install_operator_serverless_success(self, mock_install):
-        """Test successful serverless operator installation"""
-        mock_install.return_value = (0, "Installation successful", "")
-
-        config = {
-            "oc_binary": "oc",
-            "max_retries": 3,
-            "retry_delay": 10,
-            "timeout": 300,
-        }
-
-        result = install_operator("serverless", config)
-
-        assert result is True
-        mock_install.assert_called_once_with(**config)
-
-    @patch(
-        "rhoshift.utils.operator.operator.OpenShiftOperatorInstaller.install_servicemeshoperator"
-    )
-    def test_install_operator_servicemesh_success(self, mock_install):
-        """Test successful service mesh operator installation"""
-        mock_install.return_value = (0, "Installation successful", "")
-
-        config = {
-            "oc_binary": "oc",
-            "max_retries": 3,
-            "retry_delay": 10,
-            "timeout": 300,
-        }
-
-        result = install_operator("servicemesh", config)
-
-        assert result is True
-        mock_install.assert_called_once_with(**config)
-
-    @patch(
-        "rhoshift.utils.operator.operator.OpenShiftOperatorInstaller.install_authorino_operator"
-    )
-    def test_install_operator_authorino_success(self, mock_install):
-        """Test successful Authorino operator installation"""
-        mock_install.return_value = (0, "Installation successful", "")
-
-        config = {"oc_binary": "oc"}
-        result = install_operator("authorino", config)
-
-        assert result is True
-        mock_install.assert_called_once_with(**config)
-
-    @patch(
-        "rhoshift.utils.operator.operator.OpenShiftOperatorInstaller.install_openshift_cert_manager_operator"
+        "rhoshift.utils.operator.operator.OpenShiftOperatorInstaller.install_cert_manager_operator"
     )
     def test_install_operator_cert_manager_success(self, mock_install):
         """Test successful cert-manager operator installation"""
         mock_install.return_value = (0, "Installation successful", "")
 
-        config = {"oc_binary": "oc"}
+        config = {
+            "oc_binary": "oc",
+            "max_retries": 3,
+            "retry_delay": 10,
+            "timeout": 300,
+        }
+
         result = install_operator("cert-manager", config)
 
         assert result is True
-        mock_install.assert_called_once_with(**config)
+        mock_install.assert_called_once()
 
     @patch(
         "rhoshift.utils.operator.operator.OpenShiftOperatorInstaller.install_kueue_operator"
@@ -91,7 +46,7 @@ class TestInstallOperator:
         mock_install.assert_called_once_with(**config)
 
     @patch(
-        "rhoshift.utils.operator.operator.OpenShiftOperatorInstaller.install_openshift_custom_metrics_autoscaler_operator"
+        "rhoshift.utils.operator.operator.OpenShiftOperatorInstaller.install_keda_operator"
     )
     def test_install_operator_keda_success(self, mock_install):
         """Test successful KEDA operator installation"""
@@ -99,6 +54,32 @@ class TestInstallOperator:
 
         config = {"oc_binary": "oc"}
         result = install_operator("keda", config)
+
+        assert result is True
+        mock_install.assert_called_once_with(**config)
+
+    @patch(
+        "rhoshift.utils.operator.operator.OpenShiftOperatorInstaller.install_rhcl_operator"
+    )
+    def test_install_operator_rhcl_success(self, mock_install):
+        """Test successful RHCL operator installation"""
+        mock_install.return_value = (0, "Installation successful", "")
+
+        config = {"oc_binary": "oc"}
+        result = install_operator("rhcl", config)
+
+        assert result is True
+        mock_install.assert_called_once_with(**config)
+
+    @patch(
+        "rhoshift.utils.operator.operator.OpenShiftOperatorInstaller.install_lws_operator"
+    )
+    def test_install_operator_lws_success(self, mock_install):
+        """Test successful LWS operator installation"""
+        mock_install.return_value = (0, "Installation successful", "")
+
+        config = {"oc_binary": "oc"}
+        result = install_operator("lws", config)
 
         assert result is True
         mock_install.assert_called_once_with(**config)
@@ -125,26 +106,26 @@ class TestInstallOperator:
         mock_install.assert_called_once_with(**config)
 
     @patch(
-        "rhoshift.utils.operator.operator.OpenShiftOperatorInstaller.install_serverless_operator"
+        "rhoshift.utils.operator.operator.OpenShiftOperatorInstaller.install_cert_manager_operator"
     )
     def test_install_operator_failure(self, mock_install):
         """Test failed operator installation"""
         mock_install.return_value = (1, "", "Installation failed")
 
         config = {"oc_binary": "oc"}
-        result = install_operator("serverless", config)
+        result = install_operator("cert-manager", config)
 
         assert result is False
 
     @patch(
-        "rhoshift.utils.operator.operator.OpenShiftOperatorInstaller.install_serverless_operator"
+        "rhoshift.utils.operator.operator.OpenShiftOperatorInstaller.install_cert_manager_operator"
     )
     def test_install_operator_exception(self, mock_install):
         """Test operator installation with exception"""
         mock_install.side_effect = Exception("Unexpected error")
 
         config = {"oc_binary": "oc"}
-        result = install_operator("serverless", config)
+        result = install_operator("cert-manager", config)
 
         assert result is False
 
@@ -199,23 +180,25 @@ class TestInstallOperators:
         # Setup mocks
         mock_dsci.return_value = (True, [])
         mock_validate.return_value = []
-        mock_resolve.return_value = ["serverless-operator", "servicemeshoperator"]
+        mock_resolve.return_value = [
+            "openshift-cert-manager-operator",
+            "kueue-operator",
+        ]
         mock_install.return_value = True
 
         selected_ops = {
-            "serverless": True,
-            "servicemesh": True,
-            "authorino": False,
-            "cert-manager": False,
-            "kueue": False,
+            "cert-manager": True,
+            "kueue": True,
             "keda": False,
+            "rhcl": False,
+            "lws": False,
             "rhoai": False,
         }
 
         config = {
             "oc_binary": "oc",
             "max_retries": 3,
-            "stability_level": StabilityLevel.ENHANCED,
+            "stability_level": StabilityLevel.BASIC,
         }
 
         result = install_operators(selected_ops, config)
@@ -235,12 +218,11 @@ class TestInstallOperators:
         mock_install.return_value = True
 
         selected_ops = {
-            "serverless": False,
-            "servicemesh": False,
-            "authorino": False,
             "cert-manager": False,
             "kueue": False,
             "keda": False,
+            "rhcl": False,
+            "lws": False,
             "rhoai": True,
         }
 
@@ -278,12 +260,11 @@ class TestInstallOperators:
         mock_enhanced.return_value = True
 
         selected_ops = {
-            "serverless": True,
-            "servicemesh": True,
-            "authorino": False,
-            "cert-manager": False,
+            "cert-manager": True,
+            "keda": True,
             "kueue": False,
-            "keda": False,
+            "rhcl": False,
+            "lws": False,
             "rhoai": False,
         }
 
@@ -304,12 +285,11 @@ class TestInstallOperators:
         mock_install.return_value = True
 
         selected_ops = {
-            "serverless": True,
-            "servicemesh": True,
-            "authorino": False,
-            "cert-manager": False,
+            "cert-manager": True,
+            "keda": True,
             "kueue": False,
-            "keda": False,
+            "rhcl": False,
+            "lws": False,
             "rhoai": False,
         }
 
@@ -336,12 +316,11 @@ class TestInstallOperators:
         mock_install.return_value = True
 
         selected_ops = {
-            "serverless": False,
-            "servicemesh": False,
-            "authorino": False,
             "cert-manager": False,  # Not explicitly selected
-            "kueue": True,  # But kueue depends on it
+            "kueue": True,  # But kueue depends on cert-manager
             "keda": False,
+            "rhcl": False,
+            "lws": False,
             "rhoai": False,
         }
 
@@ -360,12 +339,11 @@ class TestInstallOperators:
         mock_install.side_effect = [True, False]
 
         selected_ops = {
-            "serverless": True,
-            "servicemesh": True,
-            "authorino": False,
-            "cert-manager": False,
+            "cert-manager": True,
+            "keda": True,
             "kueue": False,
-            "keda": False,
+            "rhcl": False,
+            "lws": False,
             "rhoai": False,
         }
 
@@ -379,12 +357,11 @@ class TestInstallOperators:
     def test_install_operators_no_operators_selected(self):
         """Test operators installation when no operators are selected"""
         selected_ops = {
-            "serverless": False,
-            "servicemesh": False,
-            "authorino": False,
             "cert-manager": False,
             "kueue": False,
             "keda": False,
+            "rhcl": False,
+            "lws": False,
             "rhoai": False,
         }
 
@@ -404,12 +381,11 @@ class TestInstallOperators:
         mock_install.return_value = True
 
         selected_ops = {
-            "serverless": True,
-            "servicemesh": True,
-            "authorino": False,
-            "cert-manager": False,
+            "cert-manager": True,
+            "keda": True,
+            "rhcl": False,
+            "lws": False,
             "kueue": False,
-            "keda": False,
             "rhoai": False,
         }
 
@@ -426,12 +402,11 @@ class TestInstallOperators:
         mock_install.return_value = True
 
         selected_ops = {
-            "serverless": True,
-            "servicemesh": False,
-            "authorino": False,
-            "cert-manager": False,
+            "cert-manager": True,
             "kueue": True,  # Depends on cert-manager
             "keda": False,
+            "rhcl": False,
+            "lws": False,
             "rhoai": True,  # Should be installed last
         }
 
@@ -469,23 +444,22 @@ class TestInstallOperatorsIntegration:
     """Integration tests for install_operators function"""
 
     @patch(
-        "rhoshift.utils.operator.operator.OpenShiftOperatorInstaller.install_serverless_operator"
+        "rhoshift.utils.operator.operator.OpenShiftOperatorInstaller.install_cert_manager_operator"
     )
     @patch(
         "rhoshift.utils.operator.operator.OpenShiftOperatorInstaller.install_rhoai_operator"
     )
-    def test_complete_installation_workflow(self, mock_rhoai, mock_serverless):
+    def test_complete_installation_workflow(self, mock_rhoai, mock_cert_manager):
         """Test complete installation workflow with multiple operators"""
-        mock_serverless.return_value = (0, "Serverless installed", "")
+        mock_cert_manager.return_value = (0, "Cert-manager installed", "")
         mock_rhoai.return_value = (0, "RHOAI installed", "")
 
         selected_ops = {
-            "serverless": True,
-            "servicemesh": False,
-            "authorino": False,
-            "cert-manager": False,
+            "cert-manager": True,
             "kueue": False,
             "keda": False,
+            "rhcl": False,
+            "lws": False,
             "rhoai": True,
         }
 
@@ -500,7 +474,7 @@ class TestInstallOperatorsIntegration:
         result = install_operators(selected_ops, config)
 
         assert result is True
-        mock_serverless.assert_called_once()
+        mock_cert_manager.assert_called_once()
         mock_rhoai.assert_called_once()
 
     @patch(

@@ -52,9 +52,6 @@ class TestParseArgs:
             assert args.timeout == 300
             assert args.rhoai_channel == "stable"
             assert args.raw is False
-            assert not args.serverless
-            assert not args.servicemesh
-            assert not args.authorino
             assert not args.rhoai
             assert not args.all
             assert not args.cleanup
@@ -62,6 +59,8 @@ class TestParseArgs:
             assert not args.summary
             assert args.kueue is None
             assert not args.keda
+            assert not args.rhcl
+            assert not args.lws
 
     def test_parse_args_all_operators(self):
         """Test parsing arguments with all operators selected"""
@@ -79,21 +78,19 @@ class TestParseArgs:
                 "argv",
                 [
                     "script.py",
-                    "--serverless",
-                    "--servicemesh",
-                    "--authorino",
                     "--cert-manager",
                     "--rhoai",
                     "--keda",
+                    "--rhoai-image",
+                    "quay.io/test:latest",
                 ],
             )
             args = parse_args()
-            assert args.serverless
-            assert args.servicemesh
-            assert args.authorino
             assert getattr(args, "cert_manager", False)
             assert args.rhoai
             assert args.keda
+            assert not args.rhcl
+            assert not args.lws
             assert not args.all
 
     def test_parse_args_kueue_variations(self):
@@ -124,7 +121,6 @@ class TestParseArgs:
                 "argv",
                 [
                     "script.py",
-                    "--serverless",
                     "--rhoai",
                     "--oc-binary",
                     "/custom/path/oc",
@@ -143,14 +139,13 @@ class TestParseArgs:
                 ],
             )
             args = parse_args()
-            assert args.serverless
             assert args.rhoai
             assert args.oc_binary == "/custom/path/oc"
             assert args.retries == 5
             assert args.retry_delay == 20
             assert args.timeout == 600
             assert args.rhoai_channel == "odh-nightlies"
-            assert args.raw == "True"  # String, not boolean
+            assert args.raw is True
             assert args.rhoai_image == "custom-image:latest"
 
     def test_parse_args_rhoai_special_flags(self):
@@ -175,7 +170,7 @@ class TestParseArgs:
             assert args.rhoai
             assert args.deploy_rhoai_resources
             assert args.rhoai_channel == "fast"
-            assert args.raw == "false"
+            assert args.raw is False
             assert args.rhoai_image == "quay.io/test:latest"
 
     def test_parse_args_utility_flags(self):
@@ -201,11 +196,14 @@ class TestParseArgs:
     def test_parse_args_rhoai_image_required_with_rhoai(self):
         """Test that rhoai-image is required when --rhoai is specified"""
         with pytest.MonkeyPatch.context() as m:
-            # This should work (rhoai-image has default when --rhoai is present)
-            m.setattr(sys, "argv", ["script.py", "--rhoai"])
+            m.setattr(
+                sys,
+                "argv",
+                ["script.py", "--rhoai", "--rhoai-image", "quay.io/test:latest"],
+            )
             args = parse_args()
             assert args.rhoai
-            assert args.rhoai_image  # Should have default value
+            assert args.rhoai_image == "quay.io/test:latest"
 
     def test_parse_args_type_conversion(self):
         """Test that arguments are properly type-converted"""
@@ -240,14 +238,32 @@ class TestParseArgs:
                 [
                     "script.py",
                     "--all",  # This should override individual selections
-                    "--serverless",  # Individual selection
+                    "--cert-manager",  # Individual selection
                     "--cleanup",  # This could conflict with installation
                 ],
             )
             args = parse_args()
             assert args.all
-            assert args.serverless  # Individual flags still set
+            assert getattr(args, "cert_manager", False)  # Individual flags still set
             assert args.cleanup
+
+    def test_parse_args_rhcl_flag(self):
+        """Test parsing --rhcl alone"""
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr(sys, "argv", ["script.py", "--rhcl"])
+            args = parse_args()
+            assert args.rhcl
+            assert not args.lws
+            assert not args.all
+
+    def test_parse_args_lws_flag(self):
+        """Test parsing --lws alone"""
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr(sys, "argv", ["script.py", "--lws"])
+            args = parse_args()
+            assert args.lws
+            assert not args.rhcl
+            assert not args.all
 
     def test_parse_args_empty_values(self):
         """Test parsing with empty or minimal values"""
@@ -331,7 +347,7 @@ class TestBuildConfig:
             assert config["retry_delay"] == 30
             assert config["timeout"] == 1200
             assert config["rhoai_channel"] == "odh-nightlies"
-            assert config["raw"] == "true"  # Note: this is a string, not boolean
+            assert config["raw"] is True
             assert config["rhoai_image"] == "custom:tag"
 
     def test_build_config_type_consistency(self):
@@ -381,15 +397,14 @@ class TestSelectOperators:
             args = parse_args()
             selected = select_operators(args)
 
-            # All operators should be selected
+            # --all enables cert-manager, rhoai, kueue, keda, rhcl, lws
             expected_operators = [
-                "serverless",
-                "servicemesh",
-                "authorino",
                 "cert-manager",
                 "rhoai",
                 "kueue",
                 "keda",
+                "rhcl",
+                "lws",
             ]
             for operator in expected_operators:
                 assert selected[operator] is True
@@ -400,17 +415,20 @@ class TestSelectOperators:
     def test_select_operators_individual(self):
         """Test operator selection with individual flags"""
         with pytest.MonkeyPatch.context() as m:
-            m.setattr(sys, "argv", ["script.py", "--serverless", "--rhoai", "--keda"])
+            m.setattr(
+                sys,
+                "argv",
+                ["script.py", "--cert-manager", "--rhoai", "--keda", "--rhoai-image", "quay.io/test:latest"],
+            )
             args = parse_args()
             selected = select_operators(args)
 
-            assert selected["serverless"] is True
+            assert selected["cert-manager"] is True
             assert selected["rhoai"] is True
             assert selected["keda"] is True
-            assert selected["servicemesh"] is False
-            assert selected["authorino"] is False
-            assert selected["cert-manager"] is False
-            assert selected["kueue"] is False
+            assert selected["kueue"] in (False, None)  # kueue is None when not selected
+            assert selected["rhcl"] is False
+            assert selected["lws"] is False
 
     def test_select_operators_none_selected(self):
         """Test operator selection when no operators are selected"""
@@ -419,8 +437,8 @@ class TestSelectOperators:
             args = parse_args()
             selected = select_operators(args)
 
-            # All should be False
-            assert all(value is False for value in selected.values())
+            # All should be False or None (kueue when not selected)
+            assert all(v is False or v is None for v in selected.values())
 
     def test_select_operators_kueue_variations(self):
         """Test operator selection with Kueue variations"""
@@ -430,6 +448,8 @@ class TestSelectOperators:
             args = parse_args()
             selected = select_operators(args)
             assert selected["kueue"] == "Unmanaged"  # Actual value, not boolean
+            assert selected["rhcl"] is False
+            assert selected["lws"] is False
 
         # Test Kueue with Managed
         with pytest.MonkeyPatch.context() as m:
@@ -437,6 +457,8 @@ class TestSelectOperators:
             args = parse_args()
             selected = select_operators(args)
             assert selected["kueue"] == "Managed"
+            assert selected["rhcl"] is False
+            assert selected["lws"] is False
 
     def test_select_operators_cert_manager_hyphen_conversion(self):
         """Test that cert-manager hyphen is properly handled"""
@@ -447,12 +469,32 @@ class TestSelectOperators:
 
             # The function should handle the hyphen-to-underscore conversion
             assert selected["cert-manager"] is True
+            assert selected["rhcl"] is False
+            assert selected["lws"] is False
+
+    def test_select_operators_rhcl_and_lws_individual(self):
+        """Test operator selection with --rhcl and --lws alone"""
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr(sys, "argv", ["script.py", "--rhcl"])
+            args = parse_args()
+            selected = select_operators(args)
+            assert selected["rhcl"] is True
+            assert selected["lws"] is False
+            assert selected["keda"] is False
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr(sys, "argv", ["script.py", "--lws"])
+            args = parse_args()
+            selected = select_operators(args)
+            assert selected["lws"] is True
+            assert selected["rhcl"] is False
+            assert selected["keda"] is False
 
     def test_select_operators_mixed_selection(self):
         """Test operator selection with mixed individual and all"""
         with pytest.MonkeyPatch.context() as m:
             m.setattr(
-                sys, "argv", ["script.py", "--all", "--serverless"]
+                sys, "argv", ["script.py", "--all", "--cert-manager"]
             )  # Redundant but valid
             args = parse_args()
             selected = select_operators(args)
@@ -463,20 +505,28 @@ class TestSelectOperators:
     def test_select_operators_return_type(self):
         """Test that select_operators returns correct types"""
         with pytest.MonkeyPatch.context() as m:
-            m.setattr(sys, "argv", ["script.py", "--serverless", "--kueue", "Managed"])
+            m.setattr(
+                sys, "argv", ["script.py", "--cert-manager", "--kueue", "Managed"]
+            )
             args = parse_args()
             selected = select_operators(args)
 
             assert isinstance(selected, dict)
-            assert isinstance(selected["serverless"], bool)
-            assert isinstance(selected["servicemesh"], bool)
+            assert isinstance(selected["cert-manager"], bool)
+            assert isinstance(selected["keda"], bool)
+            assert isinstance(selected["rhcl"], bool)
+            assert isinstance(selected["lws"], bool)
             # Kueue is special - it returns the actual value, not just True/False
             assert selected["kueue"] in ["Managed", "Unmanaged", False]
 
     def test_select_operators_consistency(self):
         """Test that select_operators is consistent across calls"""
         with pytest.MonkeyPatch.context() as m:
-            m.setattr(sys, "argv", ["script.py", "--serverless", "--rhoai"])
+            m.setattr(
+                sys,
+                "argv",
+                ["script.py", "--cert-manager", "--rhoai", "--rhoai-image", "quay.io/test:latest"],
+            )
             args = parse_args()
             selected1 = select_operators(args)
             selected2 = select_operators(args)
@@ -496,7 +546,7 @@ class TestArgumentIntegration:
                 "argv",
                 [
                     "script.py",
-                    "--serverless",
+                    "--cert-manager",
                     "--rhoai",
                     "--kueue",
                     "Managed",
@@ -525,7 +575,7 @@ class TestArgumentIntegration:
             selected_ops = select_operators(args)
 
             # Verify the complete workflow
-            assert args.serverless
+            assert getattr(args, "cert_manager", False)
             assert args.rhoai
             assert args.kueue == "Managed"
             assert args.deploy_rhoai_resources
@@ -536,10 +586,11 @@ class TestArgumentIntegration:
             assert config["timeout"] == 600
             assert config["rhoai_channel"] == "odh-nightlies"
 
-            assert selected_ops["serverless"] is True
+            assert selected_ops["cert-manager"] is True
             assert selected_ops["rhoai"] is True
             assert selected_ops["kueue"] == "Managed"
-            assert selected_ops["servicemesh"] is False
+            assert selected_ops["rhcl"] is False
+            assert selected_ops["lws"] is False
 
     def test_error_handling_invalid_arguments(self):
         """Test error handling for invalid arguments"""

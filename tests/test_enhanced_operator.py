@@ -9,7 +9,6 @@ import pytest
 from rhoshift.utils.health_monitor import HealthStatus
 from rhoshift.utils.operator.enhanced_operator import (
     EnhancedOpenShiftOperatorInstaller,
-    enhance_existing_operator_installation,
     install_operators_with_enhanced_stability,
 )
 from rhoshift.utils.stability_coordinator import StabilityConfig, StabilityLevel
@@ -92,18 +91,6 @@ class TestEnhancedOpenShiftOperatorInstaller:
         assert result[0] == 1  # Failure return code
         assert result[1] == ""  # No success message
         assert "Installation failed" in result[2]  # Error message
-
-    def test_install_serverless_operator_enhanced(self):
-        """Test enhanced serverless operator installation"""
-        with patch.object(
-            EnhancedOpenShiftOperatorInstaller, "install_operator_with_stability"
-        ) as mock_install:
-            mock_install.return_value = (0, "Success", "")
-
-            result = EnhancedOpenShiftOperatorInstaller.install_serverless_operator_enhanced()
-
-            assert result[0] == 0
-            mock_install.assert_called_once_with("serverless-operator")
 
     @patch("rhoshift.utils.operator.enhanced_operator.execute_resilient_operation")
     @patch("rhoshift.utils.operator.enhanced_operator.apply_manifest")
@@ -233,7 +220,7 @@ class TestEnhancedOpenShiftOperatorInstaller:
     @patch("rhoshift.utils.utils.run_command")
     def test_validate_dsci_compatibility_no_rhoai(self, mock_run_command):
         """Test DSCI compatibility validation when RHOAI is not selected"""
-        selected_ops = {"serverless": True, "rhoai": False}
+        selected_ops = {"cert-manager": True, "rhoai": False}
         config = {"rhoai_channel": "stable"}
 
         compatible, warnings = (
@@ -356,7 +343,7 @@ class TestInstallOperatorsWithEnhancedStability:
         """Test installation when cluster is not ready"""
         mock_cluster_validation.return_value = (False, ["Cluster not ready"])
 
-        selected_ops = {"serverless": True}
+        selected_ops = {"cert-manager": True}
         config = {"oc_binary": "oc"}
 
         result = install_operators_with_enhanced_stability(selected_ops, config)
@@ -383,17 +370,17 @@ class TestInstallOperatorsWithEnhancedStability:
     @patch.object(EnhancedOpenShiftOperatorInstaller, "validate_cluster_readiness")
     @patch.object(EnhancedOpenShiftOperatorInstaller, "validate_dsci_compatibility")
     @patch.object(
-        EnhancedOpenShiftOperatorInstaller, "install_serverless_operator_enhanced"
+        EnhancedOpenShiftOperatorInstaller, "install_operator_with_stability"
     )
     def test_install_operators_success(
-        self, mock_serverless_install, mock_dsci_validation, mock_cluster_validation
+        self, mock_operator_install, mock_dsci_validation, mock_cluster_validation
     ):
         """Test successful operators installation"""
         mock_cluster_validation.return_value = (True, [])
         mock_dsci_validation.return_value = (True, [])
-        mock_serverless_install.return_value = (0, "Success", "")
+        mock_operator_install.return_value = (0, "Success", "")
 
-        selected_ops = {"serverless": True, "servicemesh": False, "rhoai": False}
+        selected_ops = {"cert-manager": True, "keda": False, "rhoai": False}
         config = {"oc_binary": "oc"}
 
         with patch.object(
@@ -412,7 +399,7 @@ class TestInstallOperatorsWithEnhancedStability:
                 result = install_operators_with_enhanced_stability(selected_ops, config)
 
         assert result is True
-        mock_serverless_install.assert_called_once()
+        mock_operator_install.assert_called_once()
 
     @patch.object(EnhancedOpenShiftOperatorInstaller, "validate_cluster_readiness")
     @patch.object(EnhancedOpenShiftOperatorInstaller, "validate_dsci_compatibility")
@@ -426,9 +413,8 @@ class TestInstallOperatorsWithEnhancedStability:
         mock_operator_install.side_effect = [(0, "Success", ""), (1, "", "Failed")]
 
         selected_ops = {
-            "servicemesh": True,
-            "authorino": True,
-            "serverless": False,
+            "cert-manager": True,
+            "keda": True,
             "rhoai": False,
         }
         config = {"oc_binary": "oc"}
@@ -462,7 +448,7 @@ class TestInstallOperatorsWithEnhancedStability:
         mock_dsci_validation.return_value = (True, [])
         mock_rhoai_install.return_value = (0, "Success", "")
 
-        selected_ops = {"rhoai": True, "serverless": False}
+        selected_ops = {"rhoai": True, "cert-manager": False}
         config = {"oc_binary": "oc"}
 
         with patch.object(
@@ -492,7 +478,7 @@ class TestInstallOperatorsWithEnhancedStability:
         mock_cluster_validation.return_value = (True, [])
         mock_dsci_validation.return_value = (True, [])
 
-        selected_ops = {"serverless": True, "rhoai": False}
+        selected_ops = {"cert-manager": True, "rhoai": False}
         config = {"oc_binary": "oc"}
 
         with patch.object(
@@ -520,21 +506,6 @@ class TestInstallOperatorsWithEnhancedStability:
         assert result is False
 
 
-class TestEnhanceExistingOperatorInstallation:
-    """Test cases for enhance_existing_operator_installation function"""
-
-    def test_enhance_existing_operator_installation(self):
-        """Test enhancing existing operator installation"""
-        # This function primarily demonstrates integration
-        # The actual implementation shows how to enhance existing methods
-
-        # Call the function
-        enhance_existing_operator_installation()
-
-        # This should complete without errors
-        # The function primarily contains example code for integration
-
-
 class TestIntegrationScenarios:
     """Integration test scenarios for enhanced operator installation"""
 
@@ -552,12 +523,12 @@ class TestIntegrationScenarios:
 
         # Test with multiple operators
         selected_ops = {
-            "serverless": True,
+            "cert-manager": True,
             "keda": True,
+            "rhcl": False,
+            "lws": False,
             "rhoai": True,
-            "servicemesh": False,
-            "authorino": False,
-            "cert-manager": False,
+            "kueue": False,
         }
 
         config = {
@@ -567,8 +538,8 @@ class TestIntegrationScenarios:
         }
 
         with patch.object(
-            EnhancedOpenShiftOperatorInstaller, "install_serverless_operator_enhanced"
-        ) as mock_serverless:
+            EnhancedOpenShiftOperatorInstaller, "install_operator_with_stability"
+        ) as mock_cert_manager:
             with patch.object(
                 EnhancedOpenShiftOperatorInstaller, "install_keda_operator_enhanced"
             ) as mock_keda:
@@ -576,7 +547,7 @@ class TestIntegrationScenarios:
                     EnhancedOpenShiftOperatorInstaller,
                     "install_rhoai_operator_enhanced",
                 ) as mock_rhoai:
-                    mock_serverless.return_value = (0, "Serverless installed", "")
+                    mock_cert_manager.return_value = (0, "Cert-manager installed", "")
                     mock_keda.return_value = (0, "KEDA installed", "")
                     mock_rhoai.return_value = (0, "RHOAI installed", "")
 
@@ -585,7 +556,7 @@ class TestIntegrationScenarios:
                     )
 
         assert result is True
-        mock_serverless.assert_called_once()
+        mock_cert_manager.assert_called_once()
         mock_keda.assert_called_once()
         mock_rhoai.assert_called_once()
 

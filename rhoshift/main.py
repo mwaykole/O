@@ -50,12 +50,11 @@ def main() -> Optional[int]:
         # Pre-flight validation for cluster readiness
         if not args.cleanup and any(
             [
-                args.serverless,
-                args.servicemesh,
-                args.authorino,
                 getattr(args, "cert_manager", False),
                 args.kueue,
                 args.keda,
+                args.rhcl,
+                args.lws,
                 args.rhoai,
                 args.all,
             ]
@@ -96,12 +95,11 @@ def main() -> Optional[int]:
         logger.info(config)
         # Determine which operators to install
         selected_ops = {
-            "serverless": args.serverless or args.all,
-            "servicemesh": args.servicemesh or args.all,
-            "authorino": args.authorino or args.all,
             "cert-manager": getattr(args, "cert_manager", False) or args.all,
             "kueue": args.kueue if args.kueue else (True if args.all else False),
             "keda": args.keda or args.all,
+            "rhcl": args.rhcl or args.all,
+            "lws": args.lws or args.all,
             "rhoai": args.rhoai or args.all,
         }
 

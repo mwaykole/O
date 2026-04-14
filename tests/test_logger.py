@@ -380,7 +380,7 @@ class TestLoggerIntegration:
         logger_instance.info(f"Operator status: {structured_data}")
 
         # Test with list data
-        operator_list = ["serverless", "servicemesh", "authorino"]
+        operator_list = ["cert-manager", "kueue", "keda"]
         logger_instance.info(f"Installing operators: {operator_list}")
 
         # Should handle structured data without issues

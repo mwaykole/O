@@ -223,10 +223,9 @@ class TestManifestGenerationPure:
 
         # Test different operators
         operators_to_test = [
-            "serverless-operator",
-            "servicemeshoperator",
-            "authorino-operator",
             "openshift-cert-manager-operator",
+            "kueue-operator",
+            "openshift-custom-metrics-autoscaler-operator",
         ]
 
         for operator in operators_to_test:
@@ -251,15 +250,15 @@ class TestOperatorConfigurationLogic:
         operators = OpenShiftOperatorInstallManifest.list_operators()
 
         assert isinstance(operators, list)
-        assert len(operators) >= 6  # At least 6 operators
+        assert len(operators) >= 6  # cert-manager, kueue, keda, rhoai, rhcl, lws
 
         expected_operators = [
-            "serverless-operator",
-            "servicemeshoperator",
-            "authorino-operator",
             "openshift-cert-manager-operator",
             "kueue-operator",
             "openshift-custom-metrics-autoscaler-operator",
+            "opendatahub-operator",
+            "rhcl-operator",
+            "leader-worker-set",
         ]
 
         for operator in expected_operators:
@@ -271,9 +270,9 @@ class TestOperatorConfigurationLogic:
 
         # Test valid operators
         valid_operators = [
-            "serverless-operator",
-            "servicemeshoperator",
-            "authorino-operator",
+            "openshift-cert-manager-operator",
+            "kueue-operator",
+            "openshift-custom-metrics-autoscaler-operator",
         ]
 
         for operator in valid_operators:
@@ -289,9 +288,9 @@ class TestOperatorConfigurationLogic:
 
         # Test operator with no dependencies
         resolved = OpenShiftOperatorInstallManifest.resolve_dependencies(
-            ["serverless-operator"]
+            ["openshift-cert-manager-operator"]
         )
-        assert resolved == ["serverless-operator"]
+        assert resolved == ["openshift-cert-manager-operator"]
 
         # Test operator with dependencies (Kueue -> cert-manager)
         resolved = OpenShiftOperatorInstallManifest.resolve_dependencies(
@@ -305,11 +304,10 @@ class TestOperatorConfigurationLogic:
 
         # Test multiple operators
         resolved = OpenShiftOperatorInstallManifest.resolve_dependencies(
-            ["serverless-operator", "kueue-operator"]
+            ["openshift-cert-manager-operator", "kueue-operator"]
         )
-        assert "serverless-operator" in resolved
-        assert "kueue-operator" in resolved
         assert "openshift-cert-manager-operator" in resolved
+        assert "kueue-operator" in resolved
 
     def test_operator_compatibility_validation_complete(self):
         """Test operator compatibility validation"""
@@ -321,13 +319,17 @@ class TestOperatorConfigurationLogic:
 
         # Test single operator
         warnings = OpenShiftOperatorInstallManifest.validate_operator_compatibility(
-            ["serverless-operator"]
+            ["openshift-cert-manager-operator"]
         )
         assert isinstance(warnings, list)
 
         # Test multiple compatible operators
         warnings = OpenShiftOperatorInstallManifest.validate_operator_compatibility(
-            ["serverless-operator", "servicemeshoperator", "authorino-operator"]
+            [
+                "openshift-cert-manager-operator",
+                "kueue-operator",
+                "openshift-custom-metrics-autoscaler-operator",
+            ]
         )
         assert isinstance(warnings, list)
 
@@ -339,19 +341,47 @@ class TestArgumentParsingComprehensive:
         """Test parsing each individual operator"""
         from rhoshift.cli.args import parse_args
 
-        operators = ["serverless", "servicemesh", "authorino", "cert-manager", "keda"]
+        # cert-manager, keda work with simple flag; rhoai needs --rhoai-image; kueue needs --kueue
+        with patch("sys.argv", ["script.py", "--cert-manager"]):
+            args = parse_args()
+            assert args.cert_manager is True
+            assert args.rhcl is False
+            assert args.lws is False
 
-        for operator in operators:
-            with patch("sys.argv", ["script.py", f"--{operator}"]):
-                args = parse_args()
-                assert getattr(args, operator.replace("-", "_")) is True
+        with patch("sys.argv", ["script.py", "--keda"]):
+            args = parse_args()
+            assert args.keda is True
+            assert args.rhcl is False
+            assert args.lws is False
+
+        with patch("sys.argv", ["script.py", "--rhoai", "--rhoai-image", "test:latest"]):
+            args = parse_args()
+            assert args.rhoai is True
+            assert args.rhcl is False
+            assert args.lws is False
+
+        with patch("sys.argv", ["script.py", "--kueue", "Managed"]):
+            args = parse_args()
+            assert args.kueue == "Managed"
+            assert args.rhcl is False
+            assert args.lws is False
+
+        with patch("sys.argv", ["script.py", "--rhcl"]):
+            args = parse_args()
+            assert args.rhcl is True
+            assert args.lws is False
+
+        with patch("sys.argv", ["script.py", "--lws"]):
+            args = parse_args()
+            assert args.lws is True
+            assert args.rhcl is False
 
     def test_parse_args_kueue_variations_complete(self):
         """Test all Kueue argument variations"""
         from rhoshift.cli.args import parse_args
 
         # Test no Kueue
-        with patch("sys.argv", ["script.py", "--serverless"]):
+        with patch("sys.argv", ["script.py", "--cert-manager"]):
             args = parse_args()
             assert args.kueue is None
 
@@ -412,26 +442,27 @@ class TestArgumentParsingComprehensive:
             selected = select_operators(args)
 
             expected_operators = [
-                "serverless",
-                "servicemesh",
-                "authorino",
                 "cert-manager",
                 "rhoai",
                 "kueue",
                 "keda",
+                "rhcl",
+                "lws",
             ]
             for operator in expected_operators:
                 assert selected[operator] is True
 
         # Test individual selections
-        with patch("sys.argv", ["script.py", "--serverless", "--keda"]):
+        with patch("sys.argv", ["script.py", "--cert-manager", "--keda"]):
             args = parse_args()
             selected = select_operators(args)
 
-            assert selected["serverless"] is True
+            assert selected["cert-manager"] is True
             assert selected["keda"] is True
-            assert selected["servicemesh"] is False
-            assert selected["authorino"] is False
+            assert selected["rhoai"] is False
+            assert selected["rhcl"] is False
+            assert selected["lws"] is False
+            assert selected["kueue"] is False or selected["kueue"] is None
 
         # Test no selections
         with patch("sys.argv", ["script.py"]):

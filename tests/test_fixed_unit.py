@@ -33,11 +33,21 @@ class TestArgumentParsingIsolated:
         """Test parsing basic operator arguments"""
         from rhoshift.cli.args import parse_args
 
-        # Test serverless only
-        with patch("sys.argv", ["script.py", "--serverless"]):
+        # Test cert-manager only
+        with patch("sys.argv", ["script.py", "--cert-manager"]):
             args = parse_args()
-            assert args.serverless is True
+            assert args.cert_manager is True
             assert args.rhoai is False
+            assert args.rhcl is False
+            assert args.lws is False
+
+        with patch("sys.argv", ["script.py", "--rhcl"]):
+            args = parse_args()
+            assert args.rhcl is True
+
+        with patch("sys.argv", ["script.py", "--lws"]):
+            args = parse_args()
+            assert args.lws is True
 
         # Test all operators
         with patch("sys.argv", ["script.py", "--all"]):
@@ -52,14 +62,23 @@ class TestArgumentParsingIsolated:
         with patch("sys.argv", ["script.py", "--all"]):
             args = parse_args()
             selected = select_operators(args)
-            assert all(selected.values())
+            assert selected == {
+                "cert-manager": True,
+                "rhoai": True,
+                "kueue": True,
+                "keda": True,
+                "rhcl": True,
+                "lws": True,
+            }
 
         # Test individual selection
-        with patch("sys.argv", ["script.py", "--serverless"]):
+        with patch("sys.argv", ["script.py", "--cert-manager"]):
             args = parse_args()
             selected = select_operators(args)
-            assert selected["serverless"] is True
-            assert selected["servicemesh"] is False
+            assert selected["cert-manager"] is True
+            assert selected["keda"] is False
+            assert selected["rhcl"] is False
+            assert selected["lws"] is False
 
 
 class TestConstantsIsolated:
@@ -114,10 +133,17 @@ class TestConstantsIsolated:
 
         operators = OpenShiftOperatorInstallManifest.list_operators()
         assert isinstance(operators, list)
-        assert len(operators) > 0
+        assert len(operators) >= 6
 
         # Check some expected operators
-        expected = ["serverless-operator", "servicemeshoperator", "authorino-operator"]
+        expected = [
+            "openshift-cert-manager-operator",
+            "kueue-operator",
+            "openshift-custom-metrics-autoscaler-operator",
+            "opendatahub-operator",
+            "rhcl-operator",
+            "leader-worker-set",
+        ]
         for op in expected:
             assert op in operators
 
@@ -202,13 +228,13 @@ class TestMockingPatterns:
 
         assert isinstance(configs, dict)
         assert len(configs) > 0
-        assert "serverless-operator" in configs
+        assert "openshift-cert-manager-operator" in configs
 
         # Verify structure
-        serverless_config = configs["serverless-operator"]
-        assert "manifest" in serverless_config
-        assert "namespace" in serverless_config
-        assert "display_name" in serverless_config
+        cert_manager_config = configs["openshift-cert-manager-operator"]
+        assert "manifest" in cert_manager_config
+        assert "namespace" in cert_manager_config
+        assert "display_name" in cert_manager_config
 
 
 class TestDSCILogicIsolated:
@@ -221,7 +247,7 @@ class TestDSCILogicIsolated:
             EnhancedOpenShiftOperatorInstaller,
         )
 
-        selected_ops = {"serverless": True, "rhoai": False}
+        selected_ops = {"cert-manager": True, "rhoai": False}
         config = {}
 
         compatible, warnings = (
@@ -309,7 +335,7 @@ class TestFunctionalityWithoutCluster:
 
         # Test with valid operators
         warnings = OpenShiftOperatorInstallManifest.validate_operator_compatibility(
-            ["serverless-operator", "servicemeshoperator"]
+            ["openshift-cert-manager-operator", "kueue-operator"]
         )
         assert isinstance(warnings, list)
 
@@ -323,15 +349,16 @@ class TestFunctionalityWithoutCluster:
 
         manifest_gen = OpenShiftOperatorInstallManifest()
 
-        # Test serverless manifest
-        manifest = manifest_gen.generate_operator_manifest("serverless-operator")
+        # Test cert-manager manifest
+        manifest = manifest_gen.generate_operator_manifest(
+            "openshift-cert-manager-operator"
+        )
 
         required_content = [
             "apiVersion: operators.coreos.com/v1alpha1",
             "kind: Subscription",
-            "name: serverless-operator",
-            "namespace: openshift-serverless",
-            "channel: stable",
+            "name: openshift-cert-manager-operator",
+            "channel:",
         ]
 
         for content in required_content:
@@ -502,10 +529,10 @@ class TestMainFunctionProperlyMocked:
     @patch("rhoshift.cli.commands.install_operator")
     @patch("rhoshift.utils.health_monitor.check_operator_health")
     @patch("time.time")
-    def test_main_serverless_fully_mocked(
+    def test_main_cert_manager_fully_mocked(
         self, mock_time, mock_health, mock_install, mock_preflight
     ):
-        """Test main with serverless - fully mocked"""
+        """Test main with cert-manager - fully mocked"""
         from rhoshift.main import main
 
         # Mock all external dependencies
@@ -514,7 +541,7 @@ class TestMainFunctionProperlyMocked:
         mock_health.return_value = (None, {})  # Health check success
         mock_time.side_effect = [1000.0, 1060.0]  # 60 second duration
 
-        with patch("sys.argv", ["script.py", "--serverless"]):
+        with patch("sys.argv", ["script.py", "--cert-manager"]):
             result = main()
 
         assert result == 0
@@ -534,7 +561,7 @@ class TestMainFunctionProperlyMocked:
         mock_install.return_value = True
         mock_time.side_effect = [1000.0, 1120.0]  # 120 second duration
 
-        with patch("sys.argv", ["script.py", "--cleanup", "--serverless"]):
+        with patch("sys.argv", ["script.py", "--cleanup", "--cert-manager"]):
             result = main()
 
         assert result == 0
@@ -554,13 +581,13 @@ class TestOperatorInstallationMocked:
 
         mock_install.return_value = (0, "Installation successful", "")
 
-        # Test serverless
-        rc, stdout, stderr = OpenShiftOperatorInstaller.install_serverless_operator()
+        # Test cert-manager
+        rc, stdout, stderr = OpenShiftOperatorInstaller.install_cert_manager_operator()
         assert rc == 0
         assert "successful" in stdout.lower()
 
-        # Test servicemesh
-        rc, stdout, stderr = OpenShiftOperatorInstaller.install_servicemeshoperator()
+        # Test kueue
+        rc, stdout, stderr = OpenShiftOperatorInstaller.install_kueue_operator()
         assert rc == 0
         assert "successful" in stdout.lower()
 
@@ -661,13 +688,13 @@ class TestConfigurationFlow:
         from rhoshift.cli.args import build_config, parse_args, select_operators
 
         # Test with minimal args that don't require external validation
-        with patch("sys.argv", ["script.py", "--serverless", "--timeout", "600"]):
+        with patch("sys.argv", ["script.py", "--cert-manager", "--timeout", "600"]):
             args = parse_args()
             config = build_config(args)
             selected = select_operators(args)
 
         # Verify parsing
-        assert args.serverless is True
+        assert args.cert_manager is True
         assert args.timeout == 600
 
         # Verify config
@@ -675,8 +702,10 @@ class TestConfigurationFlow:
         assert config["oc_binary"] == "oc"
 
         # Verify selection
-        assert selected["serverless"] is True
-        assert selected["servicemesh"] is False
+        assert selected["cert-manager"] is True
+        assert selected["keda"] is False
+        assert selected["rhcl"] is False
+        assert selected["lws"] is False
 
     def test_kueue_management_state_handling(self):
         """Test Kueue management state handling"""
@@ -688,6 +717,8 @@ class TestConfigurationFlow:
             selected = select_operators(args)
 
         assert selected["kueue"] == "Unmanaged"
+        assert selected["rhcl"] is False
+        assert selected["lws"] is False
 
         # Test explicit Managed
         with patch("sys.argv", ["script.py", "--kueue", "Managed"]):
@@ -695,3 +726,5 @@ class TestConfigurationFlow:
             selected = select_operators(args)
 
         assert selected["kueue"] == "Managed"
+        assert selected["rhcl"] is False
+        assert selected["lws"] is False

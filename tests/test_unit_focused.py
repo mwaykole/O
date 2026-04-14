@@ -33,14 +33,30 @@ class TestArgumentParsing:
         with pytest.raises(Exception):
             str_to_bool("invalid")
 
-    def test_parse_args_serverless(self):
-        """Test parsing serverless operator arguments"""
+    def test_parse_args_cert_manager(self):
+        """Test parsing cert-manager operator arguments"""
         from rhoshift.cli.args import parse_args
 
-        with patch("sys.argv", ["script.py", "--serverless"]):
+        with patch("sys.argv", ["script.py", "--cert-manager"]):
             args = parse_args()
-            assert args.serverless is True
+            assert args.cert_manager is True
             assert args.oc_binary == "oc"
+            assert args.rhcl is False
+            assert args.lws is False
+
+    def test_parse_args_rhcl_and_lws(self):
+        """Test parsing --rhcl and --lws flags"""
+        from rhoshift.cli.args import parse_args
+
+        with patch("sys.argv", ["script.py", "--rhcl"]):
+            args = parse_args()
+            assert args.rhcl is True
+            assert args.lws is False
+
+        with patch("sys.argv", ["script.py", "--lws"]):
+            args = parse_args()
+            assert args.lws is True
+            assert args.rhcl is False
 
     def test_parse_args_all_operators(self):
         """Test parsing all operators arguments"""
@@ -51,7 +67,14 @@ class TestArgumentParsing:
             selected = select_operators(args)
 
             assert args.all is True
-            assert all(selected.values())  # All operators should be selected
+            assert selected == {
+                "cert-manager": True,
+                "rhoai": True,
+                "kueue": True,
+                "keda": True,
+                "rhcl": True,
+                "lws": True,
+            }
 
     def test_build_config_basic(self):
         """Test basic configuration building"""
@@ -91,8 +114,10 @@ class TestConstants:
 
         operators = OpenShiftOperatorInstallManifest.list_operators()
         assert isinstance(operators, list)
-        assert len(operators) > 0
-        assert "serverless-operator" in operators
+        assert len(operators) >= 6
+        assert "openshift-cert-manager-operator" in operators
+        assert "rhcl-operator" in operators
+        assert "leader-worker-set" in operators
 
     def test_manifest_generation_basic(self):
         """Test basic manifest generation"""
@@ -210,7 +235,7 @@ class TestEnhancedOperator:
             EnhancedOpenShiftOperatorInstaller,
         )
 
-        selected_ops = {"serverless": True, "rhoai": False}
+        selected_ops = {"cert-manager": True, "rhoai": False}
         config = {"rhoai_channel": "stable"}
 
         compatible, warnings = (
@@ -285,7 +310,7 @@ class TestMainFunctionFlow:
 
         from rhoshift.main import main
 
-        with patch("sys.argv", ["script.py", "--serverless"]):
+        with patch("sys.argv", ["script.py", "--cert-manager"]):
             result = main()
 
         assert result == 0
@@ -316,7 +341,7 @@ class TestOperatorInstaller:
 
         assert isinstance(configs, dict)
         assert len(configs) > 0
-        assert "serverless-operator" in configs
+        assert "openshift-cert-manager-operator" in configs
 
         # Check structure
         for operator_name, config in configs.items():
@@ -393,7 +418,7 @@ class TestDSCIValidation:
             EnhancedOpenShiftOperatorInstaller,
         )
 
-        selected_ops = {"serverless": True, "rhoai": False}
+        selected_ops = {"cert-manager": True, "rhoai": False}
         config = {}
 
         compatible, warnings = (
@@ -439,8 +464,10 @@ class TestConfigurationWorkflow:
             "sys.argv",
             [
                 "script.py",
-                "--serverless",
+                "--cert-manager",
                 "--rhoai",
+                "--rhoai-image",
+                "test:latest",
                 "--oc-binary",
                 "/custom/oc",
                 "--timeout",
@@ -452,7 +479,7 @@ class TestConfigurationWorkflow:
             selected = select_operators(args)
 
         # Verify parsing
-        assert args.serverless is True
+        assert args.cert_manager is True
         assert args.rhoai is True
         assert args.oc_binary == "/custom/oc"
         assert args.timeout == 600
@@ -462,9 +489,11 @@ class TestConfigurationWorkflow:
         assert config["timeout"] == 600
 
         # Verify operator selection
-        assert selected["serverless"] is True
+        assert selected["cert-manager"] is True
         assert selected["rhoai"] is True
-        assert selected["servicemesh"] is False
+        assert selected["keda"] is False
+        assert selected["rhcl"] is False
+        assert selected["lws"] is False
 
 
 class TestManifestGeneration:
@@ -498,11 +527,11 @@ class TestManifestGeneration:
         from rhoshift.utils.constants import OpenShiftOperatorInstallManifest
 
         manifest_gen = OpenShiftOperatorInstallManifest()
-        manifest = manifest_gen.generate_operator_manifest("serverless-operator")
+        manifest = manifest_gen.generate_operator_manifest("openshift-cert-manager-operator")
 
         assert "Subscription" in manifest
-        assert "serverless-operator" in manifest
-        assert "stable" in manifest
+        assert "openshift-cert-manager-operator" in manifest
+        assert "channel:" in manifest
 
 
 class TestEdgeCases:
@@ -525,6 +554,8 @@ class TestEdgeCases:
 
         # All should be False/None
         assert not any(selected.values())
+        assert selected["rhcl"] is False
+        assert selected["lws"] is False
 
     def test_dependency_resolution(self):
         """Test dependency resolution functionality"""
@@ -555,20 +586,11 @@ class TestMockedInstallations:
 
         mock_install.return_value = (0, "Installation successful", "")
 
-        # Test each operator installation method
+        # Test each operator installation method (remaining operators)
         operators_to_test = [
-            ("install_serverless_operator", "serverless-operator"),
-            ("install_servicemeshoperator", "servicemeshoperator"),
-            ("install_authorino_operator", "authorino-operator"),
-            (
-                "install_openshift_cert_manager_operator",
-                "openshift-cert-manager-operator",
-            ),
+            ("install_cert_manager_operator", "openshift-cert-manager-operator"),
             ("install_kueue_operator", "kueue-operator"),
-            (
-                "install_openshift_custom_metrics_autoscaler_operator",
-                "openshift-custom-metrics-autoscaler-operator",
-            ),
+            ("install_keda_operator", "openshift-custom-metrics-autoscaler-operator"),
         ]
 
         for method_name, expected_operator in operators_to_test:
@@ -596,14 +618,16 @@ class TestMockedInstallations:
 
         mock_install.return_value = (0, "Enhanced installation successful", "")
 
-        # Test enhanced serverless installation
+        # Test enhanced cert-manager installation (uses install_operator_with_stability)
         rc, stdout, stderr = (
-            EnhancedOpenShiftOperatorInstaller.install_serverless_operator_enhanced()
+            EnhancedOpenShiftOperatorInstaller.install_operator_with_stability(
+                "openshift-cert-manager-operator"
+            )
         )
 
         assert rc == 0
         assert stderr == ""
-        mock_install.assert_called_once_with("serverless-operator")
+        mock_install.assert_called_once()
 
 
 class TestLoggerFunctionality:

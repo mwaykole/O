@@ -23,13 +23,13 @@ class TestArgumentParsingFixed:
         with pytest.raises(Exception):
             str_to_bool("invalid")
 
-    def test_parse_args_serverless_only(self):
-        """Test parsing serverless argument only"""
+    def test_parse_args_cert_manager_only(self):
+        """Test parsing cert-manager argument only"""
         from rhoshift.cli.args import parse_args
 
-        with patch("sys.argv", ["script.py", "--serverless"]):
+        with patch("sys.argv", ["script.py", "--cert-manager"]):
             args = parse_args()
-            assert args.serverless is True
+            assert args.cert_manager is True
             assert args.oc_binary == "oc"
 
     def test_parse_args_with_required_rhoai_params(self):
@@ -69,8 +69,8 @@ class TestMainFunctionWithProperMocking:
 
     @patch("rhoshift.utils.resilience.run_preflight_checks")
     @patch("rhoshift.cli.commands.install_operator")
-    def test_main_serverless_with_mocks(self, mock_install, mock_preflight):
-        """Test main with serverless operator - properly mocked"""
+    def test_main_cert_manager_with_mocks(self, mock_install, mock_preflight):
+        """Test main with cert-manager operator - properly mocked"""
         # Mock preflight checks to return success
         mock_preflight.return_value = (True, [])
         # Mock installation to return success
@@ -78,7 +78,7 @@ class TestMainFunctionWithProperMocking:
 
         from rhoshift.main import main
 
-        with patch("sys.argv", ["script.py", "--serverless"]):
+        with patch("sys.argv", ["script.py", "--cert-manager"]):
             result = main()
 
         assert result == 0
@@ -93,7 +93,7 @@ class TestMainFunctionWithProperMocking:
 
         from rhoshift.main import main
 
-        with patch("sys.argv", ["script.py", "--serverless"]):
+        with patch("sys.argv", ["script.py", "--cert-manager"]):
             result = main()
 
         assert result == 1
@@ -119,17 +119,17 @@ class TestOperatorInstallationMocked:
     @patch(
         "rhoshift.utils.operator.operator.OpenShiftOperatorInstaller.install_operator"
     )
-    def test_serverless_installation_mocked(self, mock_install):
-        """Test serverless installation properly mocked"""
+    def test_cert_manager_installation_mocked(self, mock_install):
+        """Test cert-manager installation properly mocked"""
         from rhoshift.utils.operator.operator import OpenShiftOperatorInstaller
 
         mock_install.return_value = (0, "Installation successful", "")
 
-        rc, stdout, stderr = OpenShiftOperatorInstaller.install_serverless_operator()
+        rc, stdout, stderr = OpenShiftOperatorInstaller.install_cert_manager_operator()
 
         assert rc == 0
         assert "successful" in stdout.lower()
-        mock_install.assert_called_once_with("serverless-operator")
+        mock_install.assert_called_once_with("openshift-cert-manager-operator")
 
     @patch(
         "rhoshift.utils.operator.operator.OpenShiftOperatorInstaller.install_rhoai_operator"
@@ -385,7 +385,7 @@ class TestIntegrationPointsMocked:
 
         assert isinstance(configs, dict)
         assert len(configs) > 0
-        assert "serverless-operator" in configs
+        assert "openshift-cert-manager-operator" in configs
 
     def test_enhanced_operator_initialization(self):
         """Test enhanced operator initialization"""
@@ -416,19 +416,19 @@ class TestCommandsWithMocking:
     """Test commands module with proper mocking"""
 
     @patch(
-        "rhoshift.utils.operator.operator.OpenShiftOperatorInstaller.install_serverless_operator"
+        "rhoshift.utils.operator.operator.OpenShiftOperatorInstaller.install_cert_manager_operator"
     )
-    def test_install_operator_serverless_mocked(self, mock_install):
-        """Test install_operator for serverless with mocking"""
+    def test_install_operator_cert_manager_mocked(self, mock_install):
+        """Test install_operator for cert-manager with mocking"""
         from rhoshift.cli.commands import install_operator
 
         mock_install.return_value = (0, "Installation successful", "")
 
         config = {"oc_binary": "oc", "timeout": 300}
-        result = install_operator("serverless", config)
+        result = install_operator("cert-manager", config)
 
         assert result is True
-        mock_install.assert_called_once_with(**config)
+        mock_install.assert_called_once()
 
     @patch(
         "rhoshift.utils.operator.operator.OpenShiftOperatorInstaller.install_rhoai_operator_enhanced"
@@ -465,7 +465,7 @@ class TestCommandsWithMocking:
         mock_dsci.return_value = (True, ["DSCI compatible"])
         mock_install.return_value = True
 
-        selected_ops = {"rhoai": True, "serverless": False}
+        selected_ops = {"rhoai": True, "cert-manager": False}
         config = {"oc_binary": "oc", "rhoai_channel": "stable"}
 
         result = install_operators(selected_ops, config)
@@ -487,12 +487,10 @@ class TestManifestGenerationStandalone:
         assert len(operators) > 0
 
         expected_operators = [
-            "serverless-operator",
-            "servicemeshoperator",
-            "authorino-operator",
             "openshift-cert-manager-operator",
             "kueue-operator",
             "openshift-custom-metrics-autoscaler-operator",
+            "opendatahub-operator",
         ]
 
         for op in expected_operators:
@@ -520,13 +518,15 @@ class TestManifestGenerationStandalone:
         from rhoshift.utils.constants import OpenShiftOperatorInstallManifest
 
         manifest_gen = OpenShiftOperatorInstallManifest()
-        manifest = manifest_gen.generate_operator_manifest("serverless-operator")
+        manifest = manifest_gen.generate_operator_manifest(
+            "openshift-cert-manager-operator"
+        )
 
         required_elements = [
             "apiVersion: operators.coreos.com/v1alpha1",
             "kind: Subscription",
-            "name: serverless-operator",
-            "channel: stable",
+            "name: openshift-cert-manager-operator",
+            "channel:",
         ]
 
         for element in required_elements:

@@ -2,7 +2,7 @@
 OpenShift Operator Management Module
 
 This module provides functionality for installing, monitoring, and managing various OpenShift operators
-including Serverless, Service Mesh, Authorino, and RHOAI operators. It handles operator lifecycle
+including cert-manager, Kueue, KEDA, RHCL, LWS, and RHOAI operators. It handles operator lifecycle
 management, status monitoring, and cleanup operations.
 """
 
@@ -90,21 +90,6 @@ class OpenShiftOperatorInstaller:
         return cls._install_operator(operator_name, config["manifest"], **kwargs)
 
     @classmethod
-    def install_serverless_operator(cls, **kwargs) -> Tuple[int, str, str]:
-        """Install the OpenShift Serverless Operator."""
-        return cls.install_operator("serverless-operator", **kwargs)
-
-    @classmethod
-    def install_service_mesh_operator(cls, **kwargs) -> Tuple[int, str, str]:
-        """Install the Service Mesh Operator."""
-        return cls.install_operator("servicemeshoperator", **kwargs)
-
-    @classmethod
-    def install_authorino_operator(cls, **kwargs) -> Tuple[int, str, str]:
-        """Install the Authorino Operator."""
-        return cls.install_operator("authorino-operator", **kwargs)
-
-    @classmethod
     def install_cert_manager_operator(cls, **kwargs) -> Tuple[int, str, str]:
         """Install the cert-manager Operator."""
         return cls.install_operator("openshift-cert-manager-operator", **kwargs)
@@ -112,7 +97,29 @@ class OpenShiftOperatorInstaller:
     @classmethod
     def install_kueue_operator(cls, **kwargs) -> Tuple[int, str, str]:
         """Install the Kueue Operator."""
+        oc_binary = kwargs.get("oc_binary", "oc")
+        cls._clear_stuck_kueue_cr(oc_binary)
         return cls.install_operator("kueue-operator", **kwargs)
+
+    @classmethod
+    def _clear_stuck_kueue_cr(cls, oc_binary: str = "oc"):
+        """Remove stuck Kueue CR (kueue.openshift.io) that has a deletionTimestamp
+        but is blocked by a finalizer from a previous cleanup."""
+        rc, out, _ = run_command(
+            f"{oc_binary} get kueue.kueue.openshift.io cluster "
+            "-o jsonpath='{{.metadata.deletionTimestamp}}'",
+            max_retries=1, log_output=False,
+        )
+        if rc == 0 and out.strip().strip("'"):
+            logger.warning(
+                "Found stuck Kueue CR with deletionTimestamp, clearing finalizer..."
+            )
+            run_command(
+                f"{oc_binary} patch kueue.kueue.openshift.io cluster "
+                "-p '{{\"metadata\":{{\"finalizers\":[]}}}}' --type=merge",
+                max_retries=1, log_output=False,
+            )
+            time.sleep(5)
 
     @classmethod
     def install_keda_operator(cls, **kwargs) -> Tuple[int, str, str]:
@@ -197,6 +204,281 @@ spec:
                 )
         else:
             logger.error("❌ KEDA Operator installation failed")
+
+        return result
+
+    @classmethod
+    def _wait_for_kuadrant_ready(cls, oc_binary: str = "oc") -> bool:
+        """Wait for Kuadrant CR to become ready.
+
+        If Kuadrant reports a missing Gateway API provider, waits for a
+        GatewayClass to appear on the cluster, then restarts the
+        kuadrant-operator-controller-manager so it detects the provider.
+        """
+        ready_cmd = (
+            f"{oc_binary} get kuadrant kuadrant -n kuadrant-system "
+            "-o jsonpath='{{.status.conditions[?(@.type==\"Ready\")].status}}'"
+        )
+        message_cmd = (
+            f"{oc_binary} get kuadrant kuadrant -n kuadrant-system "
+            "-o jsonpath='{{.status.conditions[?(@.type==\"Ready\")].message}}'"
+        )
+
+        logger.info("Waiting for Kuadrant to become ready...")
+        end_time = time.time() + 120
+        while time.time() < end_time:
+            try:
+                rc, status, _ = run_command(ready_cmd, log_output=False)
+                if rc == 0 and "True" in status:
+                    logger.info("✅ Kuadrant is ready!")
+                    return True
+                time.sleep(5)
+            except Exception:
+                time.sleep(5)
+
+        rc, msg, _ = run_command(message_cmd, log_output=False)
+        if rc != 0 or "Gateway API provider" not in msg:
+            logger.warning(
+                "⚠️  Kuadrant is not ready. Check status with: "
+                "oc get kuadrant kuadrant -n kuadrant-system"
+            )
+            return False
+
+        logger.info(
+            "Kuadrant waiting for Gateway API provider — "
+            "checking for GatewayClass on the cluster..."
+        )
+        gw_end_time = time.time() + 300
+        gateway_found = False
+        while time.time() < gw_end_time:
+            rc, out, _ = run_command(
+                f"{oc_binary} get gatewayclass --no-headers",
+                max_retries=1, log_output=False,
+            )
+            if rc == 0 and out.strip():
+                logger.info("✅ GatewayClass detected on the cluster")
+                gateway_found = True
+                break
+            time.sleep(10)
+
+        if not gateway_found:
+            logger.warning(
+                "⚠️  No GatewayClass found. Kuadrant requires a Gateway API "
+                "provider (Istio or Envoy Gateway)."
+            )
+            return False
+
+        logger.info(
+            "Restarting kuadrant-operator-controller-manager "
+            "to detect the Gateway API provider..."
+        )
+        run_command(
+            f"{oc_binary} rollout restart deployment "
+            "kuadrant-operator-controller-manager -n openshift-operators",
+            max_retries=1, log_output=False,
+        )
+        time.sleep(10)
+        run_command(
+            f"{oc_binary} rollout status deployment "
+            "kuadrant-operator-controller-manager -n openshift-operators "
+            "--timeout=60s",
+            max_retries=1, log_output=False,
+        )
+
+        logger.info("Re-checking Kuadrant readiness after restart...")
+        end_time = time.time() + 120
+        while time.time() < end_time:
+            try:
+                rc, status, _ = run_command(ready_cmd, log_output=False)
+                if rc == 0 and "True" in status:
+                    logger.info("✅ Kuadrant is ready!")
+                    return True
+                time.sleep(5)
+            except Exception:
+                time.sleep(5)
+
+        logger.warning(
+            "⚠️  Kuadrant may still be starting up. Check status with: "
+            "oc get kuadrant kuadrant -n kuadrant-system"
+        )
+        return False
+
+    @classmethod
+    def install_rhcl_operator(cls, **kwargs) -> Tuple[int, str, str]:
+        """Install the RHCL (Red Hat Connectivity Link) Operator and create Kuadrant CR."""
+        logger.info("Installing RHCL (Red Hat Connectivity Link) Operator...")
+        result = cls.install_operator("rhcl-operator", **kwargs)
+
+        if result[0] == 0:
+            oc_binary = kwargs.get("oc_binary", "oc")
+
+            logger.info("Waiting for RHCL CSV to reach Succeeded phase...")
+            csv_ready = False
+            csv_end_time = time.time() + 180
+            while time.time() < csv_end_time:
+                is_ready, msg = cls._check_operator_status(
+                    "rhcl-operator", "openshift-operators",
+                    oc_binary, csv_end_time, 5,
+                )
+                if is_ready:
+                    logger.info(f"✅ {msg}")
+                    csv_ready = True
+                    break
+                time.sleep(5)
+
+            if not csv_ready:
+                logger.warning(
+                    "⚠️  RHCL CSV did not reach Succeeded phase; "
+                    "attempting Kuadrant CR creation anyway"
+                )
+
+            logger.info("Creating Kuadrant resource...")
+
+            ns_cmd = (
+                f"{oc_binary} create namespace kuadrant-system "
+                f"--dry-run=client -o yaml | {oc_binary} apply -f -"
+            )
+            try:
+                run_command(ns_cmd, log_output=True)
+                logger.info("✅ kuadrant-system namespace ensured")
+            except Exception as e:
+                logger.warning(f"⚠️  Namespace creation warning: {e}")
+
+            kuadrant_manifest = """apiVersion: kuadrant.io/v1beta1
+kind: Kuadrant
+metadata:
+  name: kuadrant
+  namespace: kuadrant-system
+spec: {}
+"""
+            cmd = f"{oc_binary} apply -f - <<EOF\n{kuadrant_manifest}\nEOF"
+
+            try:
+                rc, stdout, stderr = run_command(
+                    cmd,
+                    max_retries=kwargs.get("max_retries", 5),
+                    retry_delay=kwargs.get("retry_delay", 15),
+                    timeout=kwargs.get("timeout", WaitTime.WAIT_TIME_5_MIN),
+                    log_output=True,
+                )
+                if rc == 0:
+                    logger.info("✅ Kuadrant resource created successfully")
+                    cls._wait_for_kuadrant_ready(oc_binary)
+                else:
+                    logger.error(f"❌ Failed to create Kuadrant resource: {stderr}")
+                    logger.warning(
+                        "You can manually create the Kuadrant resource later if needed"
+                    )
+            except Exception as e:
+                logger.error(f"❌ Failed to create Kuadrant resource: {str(e)}")
+                logger.warning(
+                    "You can manually create the Kuadrant resource later if needed"
+                )
+        else:
+            logger.error("❌ RHCL Operator installation failed")
+
+        return result
+
+    @classmethod
+    def install_lws_operator(cls, **kwargs) -> Tuple[int, str, str]:
+        """Install the LWS (Leader Worker Set) Operator and create LeaderWorkerSetOperator CR."""
+        logger.info("Installing LWS (Leader Worker Set) Operator...")
+        result = cls.install_operator("leader-worker-set", **kwargs)
+
+        if result[0] == 0:
+            oc_binary = kwargs.get("oc_binary", "oc")
+
+            logger.info("Waiting for LWS CSV to reach Succeeded phase...")
+            csv_ready = False
+            csv_end_time = time.time() + 180
+            while time.time() < csv_end_time:
+                is_ready, msg = cls._check_operator_status(
+                    "leader-worker-set", "openshift-lws-operator",
+                    oc_binary, csv_end_time, 5,
+                )
+                if is_ready:
+                    logger.info(f"✅ {msg}")
+                    csv_ready = True
+                    break
+                time.sleep(5)
+
+            if not csv_ready:
+                logger.warning(
+                    "⚠️  LWS CSV did not reach Succeeded phase; "
+                    "attempting LeaderWorkerSetOperator CR creation anyway"
+                )
+
+            logger.info("Creating LeaderWorkerSetOperator resource...")
+
+            lws_manifest = """apiVersion: operator.openshift.io/v1
+kind: LeaderWorkerSetOperator
+metadata:
+  name: cluster
+spec:
+  logLevel: Normal
+  managementState: Managed
+  operatorLogLevel: Normal
+"""
+            cmd = f"{oc_binary} apply -f - <<EOF\n{lws_manifest}\nEOF"
+
+            try:
+                rc, stdout, stderr = run_command(
+                    cmd,
+                    max_retries=kwargs.get("max_retries", 5),
+                    retry_delay=kwargs.get("retry_delay", 15),
+                    timeout=kwargs.get("timeout", WaitTime.WAIT_TIME_5_MIN),
+                    log_output=True,
+                )
+                if rc == 0:
+                    logger.info(
+                        "✅ LeaderWorkerSetOperator resource created successfully"
+                    )
+
+                    logger.info("Waiting for LeaderWorkerSetOperator to become ready...")
+                    lws_ready_cmd = (
+                        f"{oc_binary} get leaderworkersetoperators cluster "
+                        "-o jsonpath='{.status.conditions[?(@.type==\"Available\")].status}'"
+                    )
+
+                    end_time = time.time() + 120
+                    while time.time() < end_time:
+                        try:
+                            rc, status, stderr = run_command(
+                                lws_ready_cmd, log_output=False
+                            )
+                            if rc == 0 and "True" in status:
+                                logger.info(
+                                    "✅ LeaderWorkerSetOperator is ready!"
+                                )
+                                break
+                            elif rc == 0 and status:
+                                logger.debug(
+                                    f"LeaderWorkerSetOperator status: {status}"
+                                )
+                            time.sleep(5)
+                        except Exception:
+                            time.sleep(5)
+                    else:
+                        logger.warning(
+                            "⚠️  LeaderWorkerSetOperator may still be starting up. "
+                            "Check status with: oc get leaderworkersetoperators cluster"
+                        )
+                else:
+                    logger.error(
+                        f"❌ Failed to create LeaderWorkerSetOperator resource: {stderr}"
+                    )
+                    logger.warning(
+                        "You can manually create the LeaderWorkerSetOperator resource later if needed"
+                    )
+            except Exception as e:
+                logger.error(
+                    f"❌ Failed to create LeaderWorkerSetOperator resource: {str(e)}"
+                )
+                logger.warning(
+                    "You can manually create the LeaderWorkerSetOperator resource later if needed"
+                )
+        else:
+            logger.error("❌ LWS Operator installation failed")
 
         return result
 
@@ -363,6 +645,23 @@ spec:
 
             if rc == 0:
                 logger.debug(f"Manifest applied for {operator_name}")
+
+                oc_binary = kwargs.get("oc_binary", "oc")
+                try:
+                    op_config = OpenShiftOperatorInstallManifest.get_operator_config(
+                        operator_name
+                    )
+                    namespace = op_config.namespace
+                except ValueError:
+                    namespace = "openshift-operators"
+
+                import time as _time
+
+                _time.sleep(5)
+                cls._approve_unapproved_installplans(
+                    operator_name, namespace, oc_binary
+                )
+
                 return rc, stdout, stderr
 
             raise RuntimeError(
@@ -372,6 +671,53 @@ spec:
         except Exception as e:
             logger.error(f"Failed to install {operator_name}: {str(e)}")
             raise
+
+    @classmethod
+    def _approve_unapproved_installplans(
+        cls,
+        operator_name: str,
+        namespace: str,
+        oc_binary: str,
+    ) -> None:
+        """Find and approve any unapproved InstallPlans for an operator.
+
+        The global-operators OperatorGroup in openshift-operators namespace can
+        override a Subscription's installPlanApproval to Manual, leaving the
+        InstallPlan unapproved and blocking CSV creation.
+        """
+        import json as _json
+
+        ip_cmd = f"{oc_binary} get installplan -n {namespace} -o json"
+        rc, stdout, stderr = run_command(ip_cmd, log_output=False)
+        if rc != 0:
+            return
+
+        try:
+            plans = _json.loads(stdout)
+        except _json.JSONDecodeError:
+            return
+
+        for plan in plans.get("items", []):
+            approved = plan.get("spec", {}).get("approved", True)
+            if approved:
+                continue
+
+            csv_names = plan.get("spec", {}).get("clusterServiceVersionNames", [])
+            matches_operator = any(
+                name.startswith(operator_name) for name in csv_names
+            )
+            if not matches_operator:
+                continue
+
+            plan_name = plan["metadata"]["name"]
+            logger.info(
+                f"🔓 Auto-approving InstallPlan {plan_name} for {operator_name}"
+            )
+            patch_cmd = (
+                f"{oc_binary} patch installplan {plan_name} -n {namespace} "
+                "--type merge -p '{\"spec\":{\"approved\":true}}'"
+            )
+            run_command(patch_cmd, log_output=False)
 
     @classmethod
     def _check_operator_status(
@@ -404,6 +750,14 @@ spec:
 
                 subs = json.loads(stdout)
                 for sub in subs.get("items", []):
+                    sub_state = sub.get("status", {}).get("state", "")
+                    if sub_state == "UpgradePending":
+                        sub_name = sub.get("metadata", {}).get("name", "")
+                        if sub_name == operator_name:
+                            cls._approve_unapproved_installplans(
+                                operator_name, namespace, oc_binary
+                            )
+
                     conditions = sub.get("status", {}).get("conditions", [])
                     for condition in conditions:
                         if condition.get(

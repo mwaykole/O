@@ -20,7 +20,6 @@ def install_operator(op_name: str, config: Dict[str, Any]) -> bool:
     enhanced_operators = {
         "keda": EnhancedOpenShiftOperatorInstaller.install_keda_operator_enhanced,
         "rhoai": EnhancedOpenShiftOperatorInstaller.install_rhoai_operator_enhanced,
-        "serverless": EnhancedOpenShiftOperatorInstaller.install_serverless_operator_enhanced,
     }
 
     stability_level = config.get("stability_level", StabilityLevel.ENHANCED)
@@ -51,9 +50,6 @@ def install_operator(op_name: str, config: Dict[str, Any]) -> bool:
         operator_map = {}
 
         cli_to_operator_config = {
-            "serverless": ("serverless-operator", "install_serverless_operator"),
-            "servicemesh": ("servicemeshoperator", "install_service_mesh_operator"),
-            "authorino": ("authorino-operator", "install_authorino_operator"),
             "cert-manager": (
                 "openshift-cert-manager-operator",
                 "install_cert_manager_operator",
@@ -63,6 +59,8 @@ def install_operator(op_name: str, config: Dict[str, Any]) -> bool:
                 "openshift-custom-metrics-autoscaler-operator",
                 "install_keda_operator",
             ),
+            "rhcl": ("rhcl-operator", "install_rhcl_operator"),
+            "lws": ("leader-worker-set", "install_lws_operator"),
         }
 
         for cli_name, (op_key, method_name) in cli_to_operator_config.items():
@@ -70,12 +68,11 @@ def install_operator(op_name: str, config: Dict[str, Any]) -> bool:
                 op_config = OpenShiftOperatorInstallManifest.get_operator_config(op_key)
 
                 icons = {
-                    "serverless": "🚀",
-                    "servicemesh": "🛡️",
-                    "authorino": "🔐",
                     "cert-manager": "🔐",
                     "kueue": "📋",
                     "keda": "📊",
+                    "rhcl": "🔗",
+                    "lws": "👥",
                 }
 
                 operator_map[cli_name] = {
@@ -211,12 +208,11 @@ def install_operators(selected_ops: Dict[str, bool], config: Dict[str, Any]) -> 
     from rhoshift.utils.constants import OpenShiftOperatorInstallManifest
 
     cli_to_operator_key = {
-        "serverless": "serverless-operator",
-        "servicemesh": "servicemeshoperator",
-        "authorino": "authorino-operator",
         "cert-manager": "openshift-cert-manager-operator",
         "kueue": "kueue-operator",
         "keda": "openshift-custom-metrics-autoscaler-operator",
+        "rhcl": "rhcl-operator",
+        "lws": "leader-worker-set",
     }
 
     operator_keys = []

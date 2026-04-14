@@ -81,19 +81,19 @@ class TestEndToEndWorkflow:
         # Mock the actual installation function instead of individual components
         mock_install.return_value = (
             0,
-            "Serverless operator installed successfully",
+            "Cert-manager operator installed successfully",
             "",
         )
 
         from rhoshift.utils.operator.operator import OpenShiftOperatorInstaller
 
-        # Test serverless operator installation
-        rc, stdout, stderr = OpenShiftOperatorInstaller.install_serverless_operator()
+        # Test cert-manager operator installation
+        rc, stdout, stderr = OpenShiftOperatorInstaller.install_cert_manager_operator()
 
         assert rc == 0
         assert "successfully" in stdout.lower()
         assert stderr == ""
-        mock_install.assert_called_once_with("serverless-operator")
+        mock_install.assert_called_once_with("openshift-cert-manager-operator")
 
     @patch("rhoshift.utils.resilience.run_preflight_checks")
     @patch("rhoshift.cli.commands.install_operator")
@@ -104,7 +104,7 @@ class TestEndToEndWorkflow:
 
         from rhoshift.main import main
 
-        with patch("sys.argv", ["script.py", "--serverless"]):
+        with patch("sys.argv", ["script.py", "--cert-manager"]):
             result = main()
 
         assert result == 0
@@ -122,7 +122,7 @@ class TestEndToEndWorkflow:
 
         from rhoshift.cli.commands import install_operators
 
-        selected_ops = {"serverless": True, "rhoai": True}
+        selected_ops = {"cert-manager": True, "rhoai": True}
         config = {"oc_binary": "oc", "rhoai_channel": "stable"}
 
         result = install_operators(selected_ops, config)
@@ -179,11 +179,11 @@ class TestOperatorConfigurations:
 
         manifest_gen = OpenShiftOperatorInstallManifest()
 
-        # Test serverless manifest
-        manifest = manifest_gen.generate_operator_manifest("serverless-operator")
+        # Test cert-manager manifest
+        manifest = manifest_gen.generate_operator_manifest("openshift-cert-manager-operator")
         assert "apiVersion: operators.coreos.com/v1alpha1" in manifest
         assert "kind: Subscription" in manifest
-        assert "serverless-operator" in manifest
+        assert "openshift-cert-manager-operator" in manifest
 
     def test_operator_list_functionality(self):
         """Test operator listing functionality"""
@@ -192,7 +192,7 @@ class TestOperatorConfigurations:
         operators = OpenShiftOperatorInstallManifest.list_operators()
         assert isinstance(operators, list)
         assert len(operators) > 0
-        assert "serverless-operator" in operators
+        assert "openshift-cert-manager-operator" in operators
 
     def test_dependency_resolution(self):
         """Test dependency resolution functionality"""
@@ -311,9 +311,9 @@ class TestArgumentParsing:
         """Test basic argument parsing"""
         from rhoshift.cli.args import parse_args
 
-        with patch("sys.argv", ["script.py", "--serverless"]):
+        with patch("sys.argv", ["script.py", "--cert-manager"]):
             args = parse_args()
-            assert args.serverless is True
+            assert args.cert_manager is True
             assert args.oc_binary == "oc"
 
     def test_select_operators_functionality(self):
@@ -352,7 +352,7 @@ class TestRealWorldScenarios:
         # This tests that the operator installer can be used
         configs = OpenShiftOperatorInstaller.get_operator_configs()
         assert len(configs) > 0
-        assert "serverless-operator" in configs
+        assert "openshift-cert-manager-operator" in configs
 
     @patch("rhoshift.utils.utils.run_command")
     def test_dsci_conflict_detection(self, mock_run_command):
@@ -394,7 +394,7 @@ class TestRealWorldScenarios:
         # Verify all operators were selected
         call_args = mock_install.call_args
         selected_ops = call_args[0][0]
-        assert selected_ops["serverless"] is True
+        assert selected_ops["cert-manager"] is True
         assert selected_ops["rhoai"] is True
         assert selected_ops["kueue"] is True
 
@@ -418,7 +418,7 @@ class TestErrorScenarios:
 
         mock_preflight.return_value = (False, ["Cluster not ready"])
 
-        with patch("sys.argv", ["script.py", "--serverless"]):
+        with patch("sys.argv", ["script.py", "--cert-manager"]):
             result = main()
 
         assert result == 1
@@ -430,7 +430,7 @@ class TestErrorScenarios:
 
         mock_install.return_value = False
 
-        with patch("sys.argv", ["script.py", "--serverless"]):
+        with patch("sys.argv", ["script.py", "--cert-manager"]):
             result = main()
 
         assert result == 1
@@ -447,7 +447,7 @@ class TestConfigurationHandling:
             "sys.argv",
             [
                 "script.py",
-                "--serverless",
+                "--cert-manager",
                 "--oc-binary",
                 "/custom/oc",
                 "--retries",
@@ -513,12 +513,12 @@ class TestManifestGeneration:
         from rhoshift.utils.constants import OpenShiftOperatorInstallManifest
 
         manifest_gen = OpenShiftOperatorInstallManifest()
-        manifest = manifest_gen.generate_operator_manifest("serverless-operator")
+        manifest = manifest_gen.generate_operator_manifest("openshift-cert-manager-operator")
 
         required_fields = [
             "apiVersion: operators.coreos.com/v1alpha1",
             "kind: Subscription",
-            "name: serverless-operator",
+            "name: openshift-cert-manager-operator",
             "spec:",
             "channel:",
             "source:",

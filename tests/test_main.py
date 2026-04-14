@@ -25,7 +25,7 @@ class TestMainFunction:
         """Test main function with a single operator - success"""
         mock_install.return_value = True
 
-        with patch("sys.argv", ["script.py", "--serverless"]):
+        with patch("sys.argv", ["script.py", "--cert-manager"]):
             result = main()
 
         assert result == 0  # Should return success code
@@ -36,7 +36,7 @@ class TestMainFunction:
         operator_name = call_args[0][0]
         config = call_args[0][1]
 
-        assert operator_name == "serverless"
+        assert operator_name == "cert-manager"
         assert config["oc_binary"] == "oc"
         assert config["stability_level"] == StabilityLevel.ENHANCED
 
@@ -45,7 +45,7 @@ class TestMainFunction:
         """Test main function with a single operator - failure"""
         mock_install.return_value = False
 
-        with patch("sys.argv", ["script.py", "--serverless"]):
+        with patch("sys.argv", ["script.py", "--cert-manager"]):
             result = main()
 
         assert result == 1  # Should return error code
@@ -56,7 +56,7 @@ class TestMainFunction:
         """Test main function with multiple operators - success"""
         mock_install.return_value = True
 
-        with patch("sys.argv", ["script.py", "--serverless", "--rhoai"]):
+        with patch("sys.argv", ["script.py", "--cert-manager", "--rhoai"]):
             result = main()
 
         assert result == 0  # Should return success code
@@ -67,9 +67,11 @@ class TestMainFunction:
         selected_ops = call_args[0][0]
         config = call_args[0][1]
 
-        assert selected_ops["serverless"] is True
+        assert selected_ops["cert-manager"] is True
         assert selected_ops["rhoai"] is True
-        assert selected_ops["servicemesh"] is False
+        assert selected_ops["keda"] is False
+        assert selected_ops["rhcl"] is False
+        assert selected_ops["lws"] is False
         assert config["stability_level"] == StabilityLevel.ENHANCED
 
     @patch("rhoshift.cli.commands.install_operators")
@@ -77,7 +79,7 @@ class TestMainFunction:
         """Test main function with multiple operators - failure"""
         mock_install.return_value = False
 
-        with patch("sys.argv", ["script.py", "--serverless", "--servicemesh"]):
+        with patch("sys.argv", ["script.py", "--cert-manager", "--keda"]):
             result = main()
 
         assert result == 1  # Should return error code
@@ -120,20 +122,19 @@ class TestMainFunction:
         call_args = mock_install.call_args
         selected_ops = call_args[0][0]
 
-        assert selected_ops["serverless"] is True
-        assert selected_ops["servicemesh"] is True
-        assert selected_ops["authorino"] is True
         assert selected_ops["cert-manager"] is True
+        assert selected_ops["rhoai"] is True
         assert selected_ops["kueue"] is True
         assert selected_ops["keda"] is True
-        assert selected_ops["rhoai"] is True
+        assert selected_ops["rhcl"] is True
+        assert selected_ops["lws"] is True
 
     @patch("rhoshift.cli.commands.install_operator")
     def test_main_exception_handling(self, mock_install):
         """Test main function exception handling"""
         mock_install.side_effect = Exception("Unexpected error")
 
-        with patch("sys.argv", ["script.py", "--serverless"]):
+        with patch("sys.argv", ["script.py", "--cert-manager"]):
             result = main()
 
         assert result == 1  # Should return error code
@@ -145,7 +146,7 @@ class TestMainFunction:
         mock_cleanup.return_value = None
         mock_install.return_value = True
 
-        with patch("sys.argv", ["script.py", "--cleanup", "--serverless"]):
+        with patch("sys.argv", ["script.py", "--cleanup", "--cert-manager"]):
             result = main()
 
         # Cleanup should be called first
@@ -162,7 +163,7 @@ class TestMainFunction:
         mock_cleanup.side_effect = Exception("Cleanup failed")
         mock_install.return_value = True
 
-        with patch("sys.argv", ["script.py", "--cleanup", "--serverless"]):
+        with patch("sys.argv", ["script.py", "--cleanup", "--cert-manager"]):
             result = main()
 
         # Should return error code due to cleanup failure
@@ -181,7 +182,7 @@ class TestMainConfigurationParsing:
         mock_install.return_value = True
 
         with patch(
-            "sys.argv", ["script.py", "--serverless", "--oc-binary", "/custom/oc"]
+            "sys.argv", ["script.py", "--cert-manager", "--oc-binary", "/custom/oc"]
         ):
             result = main()
 
@@ -201,7 +202,7 @@ class TestMainConfigurationParsing:
             "sys.argv",
             [
                 "script.py",
-                "--serverless",
+                "--cert-manager",
                 "--retries",
                 "5",
                 "--retry-delay",
@@ -297,7 +298,7 @@ class TestMainConfigurationParsing:
         """Test main function with verbose logging"""
         mock_install.return_value = True
 
-        with patch("sys.argv", ["script.py", "--serverless", "--verbose"]):
+        with patch("sys.argv", ["script.py", "--cert-manager", "--verbose"]):
             result = main()
 
         assert result == 0
@@ -315,7 +316,7 @@ class TestMainPreflightChecks:
         mock_preflight.return_value = (True, [])
         mock_install.return_value = True
 
-        with patch("sys.argv", ["script.py", "--serverless"]):
+        with patch("sys.argv", ["script.py", "--cert-manager"]):
             result = main()
 
         assert result == 0
@@ -328,7 +329,7 @@ class TestMainPreflightChecks:
         """Test main function with failed preflight checks"""
         mock_preflight.return_value = (False, ["Cluster not ready"])
 
-        with patch("sys.argv", ["script.py", "--serverless"]):
+        with patch("sys.argv", ["script.py", "--cert-manager"]):
             result = main()
 
         assert result == 1  # Should fail before installation
@@ -342,7 +343,7 @@ class TestMainPreflightChecks:
         mock_preflight.return_value = (True, ["Warning: limited resources"])
         mock_install.return_value = True
 
-        with patch("sys.argv", ["script.py", "--serverless"]):
+        with patch("sys.argv", ["script.py", "--cert-manager"]):
             result = main()
 
         assert result == 0  # Should succeed despite warnings
@@ -409,7 +410,7 @@ class TestMainComplexScenarios:
         mock_time.side_effect = [1000.0, 1120.5]  # Start and end times
         mock_install.return_value = True
 
-        with patch("sys.argv", ["script.py", "--serverless", "--servicemesh"]):
+        with patch("sys.argv", ["script.py", "--cert-manager", "--keda"]):
             result = main()
 
         assert result == 0
@@ -421,7 +422,7 @@ class TestMainComplexScenarios:
         """Test main function with health monitoring configuration"""
         mock_install.return_value = True
 
-        with patch("sys.argv", ["script.py", "--serverless"]):
+        with patch("sys.argv", ["script.py", "--cert-manager"]):
             result = main()
 
         assert result == 0
@@ -438,7 +439,7 @@ class TestMainComplexScenarios:
             with patch(
                 "rhoshift.utils.constants.OpenShiftOperatorInstallManifest"
             ) as mock_manifest:
-                mock_manifest.list_operators.return_value = ["serverless-operator"]
+                mock_manifest.list_operators.return_value = ["openshift-cert-manager-operator"]
                 mock_manifest.get_operator_config.return_value = Mock(
                     display_name="Test Operator",
                     channel="stable",
@@ -455,8 +456,8 @@ class TestMainComplexScenarios:
         """Test main function single operator edge cases"""
         mock_install.return_value = True
 
-        # Test each individual operator
-        operators = ["serverless", "servicemesh", "authorino", "cert-manager", "keda"]
+        # Test each individual operator (cert-manager, rhoai, keda; kueue needs --kueue or --kueue Managed)
+        operators = ["cert-manager", "keda"]
 
         for operator in operators:
             with patch("sys.argv", ["script.py", f"--{operator}"]):
@@ -464,8 +465,13 @@ class TestMainComplexScenarios:
 
             assert result == 0
 
+        # Test rhoai separately (requires --rhoai-image)
+        with patch("sys.argv", ["script.py", "--rhoai", "--rhoai-image", "test:latest"]):
+            result = main()
+        assert result == 0
+
         # Should have been called once for each operator
-        assert mock_install.call_count == len(operators)
+        assert mock_install.call_count == len(operators) + 1
 
 
 class TestMainErrorHandling:
@@ -483,7 +489,7 @@ class TestMainErrorHandling:
         """Test main function when post-installation health check fails"""
         mock_install.return_value = True
 
-        with patch("sys.argv", ["script.py", "--serverless"]):
+        with patch("sys.argv", ["script.py", "--cert-manager"]):
             with patch(
                 "rhoshift.utils.health_monitor.check_operator_health"
             ) as mock_health:
@@ -499,7 +505,7 @@ class TestMainErrorHandling:
         """Test main function when preflight check raises exception"""
         mock_preflight.side_effect = Exception("Preflight check error")
 
-        with patch("sys.argv", ["script.py", "--serverless"]):
+        with patch("sys.argv", ["script.py", "--cert-manager"]):
             result = main()
 
         # Should handle exception gracefully
