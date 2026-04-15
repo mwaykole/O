@@ -149,15 +149,15 @@ fi
 # Clean up webhooks
 cleanup_webhooks() {
 log_info "Cleaning up webhooks..."
-oc delete servingruntimes,isvc --all -A
-# Validating webhooks
-for webhook in $(oc get validatingwebhookconfiguration --no-headers | grep -E "kserve|knative|istio|opendatahub" | awk '{print $1}'); do
+oc delete servingruntimes,isvc --all -A 2>/dev/null || true
+# Validating webhooks (only our operators — avoid istio/sail webhooks owned by platform SM3)
+for webhook in $(oc get validatingwebhookconfiguration --no-headers | grep -E "kserve|knative|opendatahub|cert-manager|kueue|keda" | awk '{print $1}'); do
         log_info "Deleting validating webhook: ${webhook}"
         oc delete validatingwebhookconfiguration "$webhook"  || true
 done
 
-# Mutating webhooks
-for webhook in $(oc get mutatingwebhookconfiguration --no-headers | grep -E "kserve|knative|istio|opendatahub" | awk '{print $1}'); do
+# Mutating webhooks (only our operators — avoid istio/sail webhooks owned by platform SM3)
+for webhook in $(oc get mutatingwebhookconfiguration --no-headers | grep -E "kserve|knative|opendatahub|cert-manager|kueue|keda" | awk '{print $1}'); do
         log_info "Deleting mutating webhook: ${webhook}"
         oc delete mutatingwebhookconfiguration "$webhook"  || true
 done
@@ -299,8 +299,9 @@ oc delete scaledobjects --all -A --force --grace-period=0 2>/dev/null || true
 oc delete scaledjobs --all -A --force --grace-period=0 2>/dev/null || true
 
 # Delete ALL non-system CSVs cluster-wide (handles copied CSVs from AllNamespaces mode)
+# Skip platform-managed CSVs (packageserver, servicemeshoperator3 owned by ingress operator)
 log_info "Deleting all operator CSVs cluster-wide..."
-for csv_name in $(oc get csv -A --no-headers 2>/dev/null | grep -v "packageserver" | awk '{print $2}' | sort -u); do
+for csv_name in $(oc get csv -A --no-headers 2>/dev/null | grep -vE "packageserver|servicemeshoperator3" | awk '{print $2}' | sort -u); do
         log_info "Deleting CSV ${csv_name} from all namespaces..."
         for ns in $(oc get csv -A --no-headers 2>/dev/null | grep "$csv_name" | awk '{print $1}'); do
                 oc delete csv "$csv_name" -n "$ns" --force --grace-period=0 2>/dev/null &
@@ -308,10 +309,15 @@ for csv_name in $(oc get csv -A --no-headers 2>/dev/null | grep -v "packageserve
         wait
 done
 
-# Delete InstallPlans in all operator namespaces
+# Delete InstallPlans in dedicated operator namespaces (safe — no platform operators here)
 log_info "Deleting InstallPlans..."
-for ns in openshift-operators cert-manager-operator openshift-kueue-operator openshift-keda openshift-lws-operator redhat-ods-operator; do
+for ns in cert-manager-operator openshift-kueue-operator openshift-keda openshift-lws-operator redhat-ods-operator; do
         oc delete installplan --all -n "$ns" --force --grace-period=0 2>/dev/null || true
+done
+# In openshift-operators, only delete InstallPlans that belong to OUR operators (skip platform-managed ones like servicemeshoperator3)
+log_info "Deleting rhoshift-managed InstallPlans in openshift-operators..."
+for ip in $(oc get installplan -n openshift-operators --no-headers -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.clusterServiceVersionNames[*]}{"\n"}{end}' 2>/dev/null | grep -iE "rhcl|kuadrant|authorino|limitador|dns-operator|opendatahub|rhods" | cut -d: -f1); do
+        oc delete installplan "$ip" -n openshift-operators --force --grace-period=0 2>/dev/null || true
 done
 
 # Delete RHOAI catalog source
@@ -331,7 +337,6 @@ local crds_to_delete=(
     "kfdefs.kfdef.apps.kubeflow.org"
     "acceleratorprofiles.dashboard.opendatahub.io"
     "accounts.nim.opendatahub.io"
-    "authorizationpolicies.security.istio.io"
     "auths.services.platform.opendatahub.io"
     "certificates.networking.internal.knative.dev"
     "clusterdomainclaims.networking.internal.knative.dev"
@@ -343,13 +348,10 @@ local crds_to_delete=(
     "datascienceclusters.datasciencecluster.opendatahub.io"
     "datasciencepipelines.components.platform.opendatahub.io"
     "datasciencepipelinesapplications.datasciencepipelinesapplications.opendatahub.io"
-    "destinationrules.networking.istio.io"
     "domainmappings.serving.knative.dev"
     "dscinitializations.dscinitialization.opendatahub.io"
-    "envoyfilters.networking.istio.io"
     "feastoperators.components.platform.opendatahub.io"
     "featuretrackers.features.opendatahub.io"
-    "gateways.networking.istio.io"
     "hardwareprofiles.dashboard.opendatahub.io"
     "images.caching.internal.knative.dev"
     "inferencegraphs.serving.kserve.io"
@@ -370,29 +372,19 @@ local crds_to_delete=(
     "odhdashboardconfigs.opendatahub.io"
     "odhdocuments.dashboard.opendatahub.io"
     "odhquickstarts.console.openshift.io"
-    "peerauthentications.security.istio.io"
     "podautoscalers.autoscaling.internal.knative.dev"
     "predictors.serving.kserve.io"
-    "proxyconfigs.networking.istio.io"
     "rays.components.platform.opendatahub.io"
-    "requestauthentications.security.istio.io"
     "revisions.serving.knative.dev"
     "routes.serving.knative.dev"
-    "serviceentries.networking.istio.io"
     "services.serving.knative.dev"
     "servingruntimes.serving.kserve.io"
-    "sidecars.networking.istio.io"
-    "telemetries.telemetry.istio.io"
     "trainedmodels.serving.kserve.io"
     "trainingoperators.components.platform.opendatahub.io"
     "trustyais.components.platform.opendatahub.io"
     "trustyaiservices.trustyai.opendatahub.io"
     "trustyaiservices.trustyai.opendatahub.io.trustyai.opendatahub.io"
-    "virtualservices.networking.istio.io"
-    "wasmplugins.extensions.istio.io"
     "workbenches.components.platform.opendatahub.io"
-    "workloadentries.networking.istio.io"
-    "workloadgroups.networking.istio.io"
     "notebooks.kubeflow.org"
     "appwrappers.workload.codeflare.dev"
     "quotasubtrees.quota.codeflare.dev"
@@ -429,7 +421,7 @@ local crds_to_delete=(
 log_info "Deleting CRDs by pattern...BG started"
 (
 log_info "Deleting CRDs by pattern..."
-for crd in $(oc get crd --no-headers | grep -E "kserve|knative|istio|opendatahub|cert-manager|kueue|keda|kuadrant|authorino|limitador|leaderworkerset" | awk '{print $1}'); do
+for crd in $(oc get crd --no-headers | grep -E "kserve|knative|opendatahub|cert-manager|kueue|keda|kuadrant|authorino|limitador|leaderworkerset" | awk '{print $1}'); do
     log_info "Force-removing finalizers and deleting CRD: ${crd}"
     oc patch crd "$crd" --type=json -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
     oc delete crd "$crd" --force --grace-period=0 --timeout=5s 2>/dev/null || true
@@ -445,7 +437,7 @@ for crd in "${crds_to_delete[@]}"; do
 done
 
 log_info "Deleting CRDs by pattern..."
-for crd in $(oc get crd --no-headers | grep -E "kserve|knative|istio|opendatahub|cert-manager|kueue|keda|kuadrant|authorino|limitador|leaderworkerset" | awk '{print $1}'); do
+for crd in $(oc get crd --no-headers | grep -E "kserve|knative|opendatahub|cert-manager|kueue|keda|kuadrant|authorino|limitador|leaderworkerset" | awk '{print $1}'); do
         log_info "Deleting CRD: ${crd}"
         oc patch crd "$crd" -p '{"metadata":{"finalizers":[]}}' --type=merge 2>/dev/null || true
         oc delete crd "$crd" --ignore-not-found --force --grace-period=0 --timeout=5s 2>/dev/null || true
@@ -551,7 +543,7 @@ log_success "RHOAI/Kserve forceful uninstallation completed!"
 # Final recommendations
 echo -e "\n${YELLOW}Recommendations:${NC}"
 echo "1. Verify cleanup with:"
-echo "   oc get crd | grep -E 'opendatahub|kubeflow|kserve|ray|cert-manager|kueue|knative|istio|keda|kuadrant|authorino|limitador|leaderworkerset'"
+echo "   oc get crd | grep -E 'opendatahub|kubeflow|kserve|ray|cert-manager|kueue|knative|keda|kuadrant|authorino|limitador|leaderworkerset'"
 echo "   oc get ns | grep -E 'redhat-ods|opendatahub|rhods|istio|knative|cert-manager|kueue|keda|kuadrant|lws'"
 echo "   oc get csv -A | grep -v packageserver"
 echo "   oc get sub -A"
