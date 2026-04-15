@@ -69,7 +69,7 @@ class OpenShiftOperatorInstallManifest:
             display_name="Red Hat build of cert-manager Operator for Red Hat OpenShift",
             namespace="cert-manager-operator",
             channel="stable-v1",
-            install_mode=InstallMode.OWN_NAMESPACE,
+            install_mode=InstallMode.ALL_NAMESPACES,
             csv_name_prefix="cert-manager-operator",
             starting_csv=None,
         ),
