@@ -47,6 +47,38 @@ def main() -> Optional[int]:
         if args.cleanup:
             cleanup()
 
+        # Handle --upgrade workflow
+        if args.upgrade:
+            if not args.from_image or not args.to_image:
+                logger.error(
+                    "❌ --upgrade requires both --from-image and --to-image"
+                )
+                return 1
+
+            from rhoshift.cli.commands import run_upgrade
+
+            upgrade_config = {
+                "oc_binary": args.oc_binary,
+                "max_retries": args.retries,
+                "retry_delay": args.retry_delay,
+                "timeout": args.timeout,
+                "rhoai_channel": args.rhoai_channel,
+                "raw": args.raw,
+                "from_image": args.from_image,
+                "to_image": args.to_image,
+                "from_channel": args.from_channel or args.rhoai_channel,
+                "to_channel": args.to_channel or args.rhoai_channel,
+                "test_path": args.test_path,
+                "test_markers": args.test_markers,
+                "skip_tests": args.skip_tests,
+                "skip_cleanup": args.skip_cleanup,
+                "wait_time": args.wait_time,
+                "stability_level": StabilityLevel.ENHANCED,
+                "enable_health_monitoring": True,
+                "enable_auto_recovery": True,
+            }
+            return run_upgrade(upgrade_config)
+
         # Pre-flight validation for cluster readiness
         if not args.cleanup and any(
             [
@@ -149,7 +181,26 @@ def main() -> Optional[int]:
                             generate_health_report,
                         )
 
-                        logger.info("✅ Post-installation health checks completed")
+                        ns = (
+                            "opendatahub-operators"
+                            if config.get("rhoai_channel") == "odh-nightlies"
+                            else "redhat-ods-operator"
+                        )
+                        op_name = (
+                            "opendatahub-operator"
+                            if config.get("rhoai_channel") == "odh-nightlies"
+                            else "rhods-operator"
+                        )
+                        health_status, health_results = check_operator_health(
+                            operator_name=op_name,
+                            namespace=ns,
+                            oc_binary=config.get("oc_binary", "oc"),
+                        )
+                        report = generate_health_report(health_results)
+                        logger.info(f"Health report:\n{report}")
+                        logger.info(
+                            f"✅ Post-installation health checks completed: {health_status.value}"
+                        )
                     except Exception as health_error:
                         logger.warning(
                             f"⚠️  Post-installation health check failed: {health_error}"

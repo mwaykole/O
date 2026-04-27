@@ -370,6 +370,10 @@ check_pod_status() {
     fi
 }
 
+# Save original file descriptors for restoration inside the loop
+exec 3>&1
+exec 4>&2
+
 # Process each scenario
 for scenario in "${SCENARIOS_TO_RUN[@]}"; do
     log "INFO" "==================== [SCENARIO: ${scenario^^}] ===================="

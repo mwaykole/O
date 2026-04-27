@@ -575,12 +575,17 @@ spec:
                 if channel == "odh-nightlies"
                 else "redhat-ods-operator"
             )
-            operator_name = (
-                "opendatahub-operator.1.18.0"
+            operator_prefix = (
+                "opendatahub-operator"
                 if channel == "odh-nightlies"
                 else "rhods-operator"
             )
-            # namespace = "redhat-ods-operator"
+
+            operator_name = cls._resolve_csv_name(
+                prefix=operator_prefix,
+                namespace=namespace,
+                oc_binary=oc_binary,
+            )
             results = cls.wait_for_operator(
                 operator_name=operator_name,
                 namespace=namespace,
@@ -625,6 +630,29 @@ spec:
                     run_command(f"rm -rf {temp_dir}", log_output=False)
             except Exception:
                 pass
+
+    @classmethod
+    def _resolve_csv_name(
+        cls,
+        prefix: str,
+        namespace: str,
+        oc_binary: str = "oc",
+    ) -> str:
+        """Resolve the actual CSV name from the cluster by prefix.
+
+        Avoids hardcoding version-specific CSV names like
+        ``opendatahub-operator.1.18.0`` which break on version bumps.
+        Falls back to the bare prefix if no CSV is found yet.
+        """
+        cmd = (
+            f"{oc_binary} get csv -n {namespace} --no-headers "
+            f"-o custom-columns=NAME:.metadata.name 2>/dev/null "
+            f"| grep '^{prefix}' | tail -1"
+        )
+        rc, stdout, _ = run_command(cmd, log_output=False)
+        resolved = stdout.strip() if rc == 0 and stdout.strip() else prefix
+        logger.info(f"Resolved CSV name: {resolved} (prefix={prefix})")
+        return resolved
 
     @classmethod
     def _install_operator(
@@ -1095,8 +1123,7 @@ spec:
         """
         logging.debug("Deploying Data Science Cluster and Instance resources...")
         if create_dsc_dsci:
-            # Delete old dsc and dsci
-            result = cls.force_delete_rhoai_dsc_dsci()
+            result = cls.force_delete_rhoai_dsc_dsci(channel=channel)
             # Check results
             dsci_deletion_successful = False
             for cmd_name, cmd_result in result.items():
@@ -1391,3 +1418,62 @@ spec:
             logger.info(f"{status_icon} {name}: {result['message']}")
 
         return results
+
+    @classmethod
+    def generate_upgrade_report(
+        cls,
+        from_channel: str,
+        to_channel: str,
+        from_image: str,
+        to_image: str,
+        namespace: str = "redhat-ods-operator",
+        oc_binary: str = "oc",
+    ) -> dict:
+        """Generate a structured JSON upgrade report capturing cluster state.
+
+        Returns a dict suitable for JSON serialisation with CSV versions,
+        DSC conditions, component readiness, and kserve/dashboard status.
+        """
+        report: dict = {
+            "upgrade": {
+                "from_channel": from_channel,
+                "to_channel": to_channel,
+                "from_image": from_image,
+                "to_image": to_image,
+                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            },
+            "csv": {},
+            "dsc": {},
+            "components": {},
+        }
+
+        csv_cmd = f"{oc_binary} get csv -n {namespace} --no-headers -o custom-columns=NAME:.metadata.name,PHASE:.status.phase 2>/dev/null"
+        rc, stdout, _ = run_command(csv_cmd, log_output=False)
+        if rc == 0:
+            for line in stdout.strip().splitlines():
+                parts = line.split()
+                if len(parts) >= 2:
+                    report["csv"][parts[0]] = parts[1]
+
+        dsc_cmd = (
+            f"{oc_binary} get dsc default-dsc -o json 2>/dev/null"
+        )
+        rc, stdout, _ = run_command(dsc_cmd, log_output=False)
+        if rc == 0:
+            try:
+                dsc_obj = json.loads(stdout)
+                conditions = dsc_obj.get("status", {}).get("conditions", [])
+                for cond in conditions:
+                    report["components"][cond.get("type", "")] = {
+                        "status": cond.get("status", ""),
+                        "reason": cond.get("reason", ""),
+                    }
+                report["dsc"]["ready"] = any(
+                    c.get("type") == "Ready" and c.get("status") == "True"
+                    for c in conditions
+                )
+            except json.JSONDecodeError:
+                report["dsc"]["error"] = "Failed to parse DSC JSON"
+
+        logger.info(f"Upgrade report:\n{json.dumps(report, indent=2)}")
+        return report

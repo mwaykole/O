@@ -359,8 +359,11 @@ spec:
                 )
             else:
                 warnings.append(
-                    f"⚠️  DSCI compatibility: existing monitoring namespace is '{existing_monitoring_ns}', channel '{channel}' prefers '{desired_monitoring_ns}'. Using existing configuration."
+                    f"❌ DSCI incompatible: existing monitoring namespace is '{existing_monitoring_ns}', "
+                    f"channel '{channel}' requires '{desired_monitoring_ns}'. "
+                    f"Use --deploy-rhoai-resources to force recreate, or manually update the DSCI."
                 )
+                return False, warnings
         else:
             warnings.append(
                 f"✅ DSCI compatible: monitoring namespace '{existing_monitoring_ns}' matches channel '{channel}'"
