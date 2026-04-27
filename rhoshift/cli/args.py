@@ -68,6 +68,66 @@ def parse_args() -> argparse.Namespace:
         help="Show detailed summary of all supported operators and their versions",
     )
 
+    # Upgrade workflow
+    upgrade_group = parser.add_argument_group("Upgrade Workflow")
+    upgrade_group.add_argument(
+        "--upgrade",
+        action="store_true",
+        help="Run full upgrade workflow: install base → pre-tests → upgrade → post-tests",
+    )
+    upgrade_group.add_argument(
+        "--from-image",
+        type=str,
+        default=None,
+        help="Base (source) FBC fragment image for upgrade",
+    )
+    upgrade_group.add_argument(
+        "--to-image",
+        type=str,
+        default=None,
+        help="Target FBC fragment image to upgrade to",
+    )
+    upgrade_group.add_argument(
+        "--test-path",
+        type=str,
+        default=None,
+        help="Pytest path filter, e.g. tests/model_serving/model_server",
+    )
+    upgrade_group.add_argument(
+        "--test-markers",
+        type=str,
+        default=None,
+        help="Extra pytest markers to add (comma-separated)",
+    )
+    upgrade_group.add_argument(
+        "--skip-tests",
+        action="store_true",
+        help="Skip pre/post upgrade tests (upgrade only)",
+    )
+    upgrade_group.add_argument(
+        "--skip-cleanup",
+        action="store_true",
+        help="Skip cleanup before base version install",
+    )
+    upgrade_group.add_argument(
+        "--wait-time",
+        type=int,
+        default=600,
+        help="Seconds to wait for pods to stabilize after upgrade (default: 600)",
+    )
+    upgrade_group.add_argument(
+        "--from-channel",
+        type=str,
+        default=None,
+        help="Channel for base version (default: uses --rhoai-channel)",
+    )
+    upgrade_group.add_argument(
+        "--to-channel",
+        type=str,
+        default=None,
+        help="Channel for target version (default: uses --rhoai-channel)",
+    )
+
     # Configuration options
     config = parser.add_argument_group("Configuration")
     config.add_argument(
