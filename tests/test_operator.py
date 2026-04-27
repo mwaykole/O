@@ -180,40 +180,46 @@ class TestOpenShiftOperatorInstaller:
             assert result[0] == 0
             mock_install.assert_called_once_with("leader-worker-set")
 
-    @patch("rhoshift.utils.utils.apply_manifest")
-    @patch("rhoshift.utils.utils.wait_for_resource_for_specific_status")
+    @patch("rhoshift.utils.operator.operator.run_command")
+    @patch(
+        "rhoshift.utils.operator.operator.OpenShiftOperatorInstaller.wait_for_operator"
+    )
     @patch(
         "rhoshift.utils.operator.operator.OpenShiftOperatorInstaller.deploy_dsc_dsci"
     )
+    @patch(
+        "rhoshift.utils.operator.operator.OpenShiftOperatorInstaller._resolve_csv_name"
+    )
     def test_install_rhoai_operator_success(
-        self, mock_deploy_dsc_dsci, mock_wait, mock_apply
+        self, mock_resolve, mock_deploy_dsc_dsci, mock_wait, mock_run_cmd
     ):
-        """Test successful RHOAI operator installation"""
-        mock_apply.return_value = (0, "applied", "")
-        mock_wait.return_value = (True, "Succeeded", "")
+        """Test successful RHOAI operator installation returns a dict"""
+        mock_run_cmd.return_value = (0, "done", "")
+        mock_resolve.return_value = "rhods-operator"
+        mock_wait.return_value = {"rhods-operator": {"status": "installed"}}
         mock_deploy_dsc_dsci.return_value = None
 
-        rc, stdout, stderr = OpenShiftOperatorInstaller.install_rhoai_operator(
+        result = OpenShiftOperatorInstaller.install_rhoai_operator(
             rhoai_image="test-image:latest",
             rhoai_channel="stable",
             create_dsc_dsci=True,
         )
 
-        assert rc == 0
-        assert "successfully" in stdout.lower()
+        assert isinstance(result, dict)
+        assert result.get("rhods-operator", {}).get("status") == "installed"
         mock_deploy_dsc_dsci.assert_called_once()
 
-    @patch("rhoshift.utils.utils.apply_manifest")
-    def test_install_rhoai_operator_manifest_failure(self, mock_apply):
-        """Test RHOAI operator installation with manifest failure"""
-        mock_apply.side_effect = Exception("Manifest failed")
+    @patch("rhoshift.utils.operator.operator.run_command")
+    def test_install_rhoai_operator_clone_failure(self, mock_run_cmd):
+        """Test RHOAI operator installation with clone failure"""
+        mock_run_cmd.return_value = (1, "", "clone failed")
 
-        rc, stdout, stderr = OpenShiftOperatorInstaller.install_rhoai_operator(
+        result = OpenShiftOperatorInstaller.install_rhoai_operator(
             rhoai_image="test-image:latest", rhoai_channel="stable"
         )
 
-        assert rc == 1
-        assert "failed" in stderr.lower()
+        assert isinstance(result, dict)
+        assert result.get("rhods-operator", {}).get("status") == "failed"
 
     @patch("rhoshift.utils.utils.run_command")
     def test_force_delete_rhoai_dsc_dsci(self, mock_run_command):
@@ -448,35 +454,20 @@ class TestOperatorManifestGeneration:
 class TestRHOAISpecificFeatures:
     """Test cases for RHOAI-specific features"""
 
-    @patch("rhoshift.utils.utils.run_command")
-    def test_kueue_dsc_integration_existing_dsc(self, mock_run_command):
-        """Test Kueue DSC integration with existing DSC"""
-        # Mock existing DSC
-        mock_run_command.side_effect = [
-            (0, "default-dsc", ""),  # DSC exists
-            (0, "patched", ""),  # Patch successful
-        ]
+    def test_dsc_manifest_includes_kueue_when_specified(self):
+        """Test DSC manifest includes Kueue when kueue_management_state is set"""
+        from rhoshift.utils.constants import get_dsc_manifest
 
-        from rhoshift.utils.operator.operator import update_kueue_in_dsc
+        manifest = get_dsc_manifest(kueue_management_state="Managed")
+        assert "kueue:" in manifest
+        assert "managementState: Managed" in manifest
 
-        result = update_kueue_in_dsc("Managed")
+    def test_dsc_manifest_excludes_kueue_when_none(self):
+        """Test DSC manifest excludes Kueue when kueue_management_state is None"""
+        from rhoshift.utils.constants import get_dsc_manifest
 
-        assert result[0] == 0
-        assert mock_run_command.call_count == 2
-
-    @patch("rhoshift.utils.utils.run_command")
-    def test_kueue_dsc_integration_no_existing_dsc(self, mock_run_command):
-        """Test Kueue DSC integration without existing DSC"""
-        # Mock no existing DSC
-        mock_run_command.return_value = (1, "", "not found")
-
-        from rhoshift.utils.operator.operator import update_kueue_in_dsc
-
-        result = update_kueue_in_dsc("Managed")
-
-        # Should indicate no DSC found
-        assert result[0] == 1
-        assert "not found" in result[2] or "No existing DSC" in result[1]
+        manifest = get_dsc_manifest(kueue_management_state=None)
+        assert "kueue:" not in manifest
 
 
 class TestErrorHandlingAndEdgeCases:

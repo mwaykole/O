@@ -149,7 +149,26 @@ def main() -> Optional[int]:
                             generate_health_report,
                         )
 
-                        logger.info("✅ Post-installation health checks completed")
+                        ns = (
+                            "opendatahub-operators"
+                            if config.get("rhoai_channel") == "odh-nightlies"
+                            else "redhat-ods-operator"
+                        )
+                        op_name = (
+                            "opendatahub-operator"
+                            if config.get("rhoai_channel") == "odh-nightlies"
+                            else "rhods-operator"
+                        )
+                        health_status, health_results = check_operator_health(
+                            operator_name=op_name,
+                            namespace=ns,
+                            oc_binary=config.get("oc_binary", "oc"),
+                        )
+                        report = generate_health_report(health_results)
+                        logger.info(f"Health report:\n{report}")
+                        logger.info(
+                            f"✅ Post-installation health checks completed: {health_status.value}"
+                        )
                     except Exception as health_error:
                         logger.warning(
                             f"⚠️  Post-installation health check failed: {health_error}"

@@ -534,12 +534,6 @@ spec:
   monitoring:
     managementState: Managed
     namespace: {monitoring_namespace}
-  serviceMesh:
-    controlPlane:
-      metricsCollection: Istio
-      name: data-science-smcp
-      namespace: istio-system
-    managementState: {to_state(kserve_raw)}
   trustedCABundle:
     customCABundle: ''
     managementState: Managed
@@ -560,11 +554,13 @@ def get_dsc_manifest(
     enable_modelmeshserving=True,
     operator_namespace="rhods-operator",
     kueue_management_state=None,
+    nim_management_state="Removed",
 ):
     def to_state(flag):
         return "Managed" if flag else "Removed"
 
-    # Build the base manifest
+    serving_state = to_state(not enable_raw_serving)
+
     manifest = f"""apiVersion: datasciencecluster.opendatahub.io/v1
 kind: DataScienceCluster
 metadata:
@@ -582,21 +578,19 @@ spec:
     kserve:
       managementState: {to_state(enable_kserve)}
       nim:
-        managementState: Managed
+        managementState: {nim_management_state}
       serving:
         ingressGateway:
           certificate:
             type: OpenshiftDefaultIngress
-        managementState: {to_state(enable_raw_serving ^ True)}
+        managementState: {serving_state}
         name: knative-serving"""
 
-    # Add Kueue component if kueue_management_state is specified
     if kueue_management_state is not None:
         manifest += f"""
     kueue:
       managementState: {kueue_management_state}"""
 
-    # Add modelmeshserving component
     manifest += f"""
     modelmeshserving:
       managementState: {to_state(enable_modelmeshserving)}
